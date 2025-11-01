@@ -5,53 +5,41 @@ import {
 } from "@/src/components/ui/splash-screen";
 import { Database, Beaker, Zap, Code } from "lucide-react";
 import { DatasetActionButton } from "@/src/features/datasets/components/DatasetActionButton";
-import { useTranslation } from "react-i18next";
 
 export function DatasetsOnboarding({ projectId }: { projectId: string }) {
-  const { t } = useTranslation();
-
   const valuePropositions: ValueProposition[] = [
     {
-      title: t(
-        "dataset.onboarding.valuePropositions.continuousImprovement.title",
-      ),
-      description: t(
-        "dataset.onboarding.valuePropositions.continuousImprovement.description",
-      ),
+      title: "Continuous improvement",
+      description:
+        "Create datasets from production edge cases to improve your application",
       icon: <Zap className="h-4 w-4" />,
     },
     {
-      title: t(
-        "dataset.onboarding.valuePropositions.preDeploymentTesting.title",
-      ),
-      description: t(
-        "dataset.onboarding.valuePropositions.preDeploymentTesting.description",
-      ),
+      title: "Pre-deployment testing",
+      description: "Benchmark new releases before deploying to production",
       icon: <Beaker className="h-4 w-4" />,
     },
     {
-      title: t("dataset.onboarding.valuePropositions.structuredTesting.title"),
-      description: t(
-        "dataset.onboarding.valuePropositions.structuredTesting.description",
-      ),
+      title: "Structured testing",
+      description:
+        "Run experiments on collections of inputs and expected outputs",
       icon: <Database className="h-4 w-4" />,
     },
     {
-      title: t("dataset.onboarding.valuePropositions.customWorkflows.title"),
-      description: t(
-        "dataset.onboarding.valuePropositions.customWorkflows.description",
-      ),
+      title: "Custom workflows",
+      description:
+        "Build custom workflows around your datasets via the API and SDKs, e.g. for fine-tuning, few-shotting",
       icon: <Code className="h-4 w-4" />,
     },
   ];
 
   return (
     <SplashScreen
-      title={t("dataset.onboarding.getStartedTitle")}
-      description={t("dataset.onboarding.getStartedDescription")}
+      title="Get Started with Datasets & Experiments"
+      description="Datasets in Langfuse are collections of inputs (and expected outputs) for your LLM application. You can run Experiments against these datasets to test new releases before deployment to production."
       valuePropositions={valuePropositions}
       primaryAction={{
-        label: t("dataset.onboarding.createDataset"),
+        label: "Create Dataset",
         component: (
           <DatasetActionButton
             variant="default"
@@ -61,10 +49,11 @@ export function DatasetsOnboarding({ projectId }: { projectId: string }) {
           />
         ),
       }}
-      // secondaryAction={{
-      //   label: t("dataset.onboarding.learnMore"),
-      //   href: "https://langfuse.com/docs/datasets",
-      // }}
+      secondaryAction={{
+        label: "Learn More",
+        href: "https://langfuse.com/docs/datasets",
+      }}
+      videoSrc="https://static.langfuse.com/prod-assets/onboarding/datasets-overview-v1.mp4"
     />
   );
 }

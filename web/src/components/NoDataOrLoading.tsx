@@ -1,9 +1,7 @@
 import React from "react";
 import { cn } from "@/src/utils/tailwind";
 import DocPopup from "@/src/components/layouts/doc-popup";
-import { Flex, Text } from "@tremor/react";
 import { Skeleton } from "@/src/components/ui/skeleton";
-import { useTranslation } from "react-i18next";
 
 interface NoDataOrLoadingProps {
   isLoading: boolean;
@@ -17,22 +15,21 @@ interface NoDataProps {
   className?: string;
 }
 
-const NoData = ({ noDataText, children, className }: NoDataProps) => {
-  const { t } = useTranslation();
+const NoData = ({
+  noDataText = "No data",
+  children,
+  className,
+}: NoDataProps) => {
   return (
-    <Flex
-      alignItems="center"
-      justifyContent="center"
+    <div
       className={cn(
-        "flex h-3/4 min-h-[9rem] w-full rounded-tremor-default border border-dashed",
+        "flex h-3/4 min-h-[9rem] w-full items-center justify-center rounded-tremor-default border border-dashed",
         className,
       )}
     >
-      <Text className="text-tremor-content">
-        {noDataText || t("dashboard.modelLatencies.noData")}
-      </Text>
+      <p className="text-tremor-content">{noDataText}</p>
       {children}
-    </Flex>
+    </div>
   );
 };
 
@@ -44,21 +41,19 @@ export function NoDataOrLoading({
 }: NoDataOrLoadingProps) {
   if (isLoading) {
     return (
-      <Flex
-        alignItems="center"
-        justifyContent="center"
+      <div
         className={cn(
-          "flex h-3/4 min-h-[9rem] w-full rounded-tremor-default",
+          "flex h-3/4 min-h-[9rem] w-full items-center justify-center rounded-tremor-default",
           className,
         )}
       >
         <Skeleton className="h-full w-full" />
-      </Flex>
+      </div>
     );
   }
 
   return (
-    <NoData className={className}>
+    <NoData noDataText="No data" className={className}>
       {description && <DocPopup description={description} href={href} />}
     </NoData>
   );

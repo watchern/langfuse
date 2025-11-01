@@ -16,8 +16,6 @@ import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import { projectNameSchema } from "@/src/features/auth/lib/projectNameSchema";
 import { usePostHogClientCapture } from "@/src/features/posthog-analytics/usePostHogClientCapture";
-import { showChat } from "@/src/features/support-chat/PlainChat";
-import { useTranslation } from "react-i18next";
 
 export const NewProjectForm = ({
   orgId,
@@ -26,7 +24,6 @@ export const NewProjectForm = ({
   orgId: string;
   onSuccess: (projectId: string) => void;
 }) => {
-  const { t } = useTranslation();
   const capture = usePostHogClientCapture();
   const { update: updateSession } = useSession();
 
@@ -59,7 +56,6 @@ export const NewProjectForm = ({
       .catch((error) => {
         console.error(error);
       });
-    showChat();
   }
   return (
     <Form {...form}>
@@ -68,13 +64,19 @@ export const NewProjectForm = ({
         onSubmit={form.handleSubmit(onSubmit)}
         className="space-y-3"
         data-testid="new-project-form"
+        onKeyDown={(e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+            e.preventDefault();
+            void form.handleSubmit(onSubmit)();
+          }
+        }}
       >
         <FormField
           control={form.control}
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t("organization.forms.projectName")}</FormLabel>
+              <FormLabel>Project name</FormLabel>
               <FormControl>
                 <Input
                   placeholder="my-llm-project"
@@ -87,7 +89,7 @@ export const NewProjectForm = ({
           )}
         />
         <Button type="submit" loading={createProjectMutation.isPending}>
-          {t("organization.forms.create")}
+          Create
         </Button>
       </form>
     </Form>

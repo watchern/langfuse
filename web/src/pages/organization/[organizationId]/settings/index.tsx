@@ -15,7 +15,9 @@ import { SSOSettings } from "@/src/ee/features/sso-settings/components/SSOSettin
 import { isCloudPlan } from "@langfuse/shared";
 import { useQueryProjectOrOrganization } from "@/src/features/projects/hooks";
 import { ApiKeyList } from "@/src/features/public-api/components/ApiKeyList";
-import { useTranslation } from "react-i18next";
+import AIFeatureSwitch from "@/src/features/organizations/components/AIFeatureSwitch";
+import { useIsCloudBillingAvailable } from "@/src/ee/features/billing/utils/isCloudBilling";
+import { env } from "@/src/env.mjs";
 
 type OrganizationSettingsPage = {
   title: string;
@@ -25,21 +27,20 @@ type OrganizationSettingsPage = {
 } & ({ content: React.ReactNode } | { href: string });
 
 export function useOrganizationSettingsPages(): OrganizationSettingsPage[] {
-  const { t } = useTranslation();
   const { organization } = useQueryProjectOrOrganization();
   const showBillingSettings = useHasEntitlement("cloud-billing");
   const showOrgApiKeySettings = useHasEntitlement("admin-api");
   const plan = usePlan();
   const isLangfuseCloud = isCloudPlan(plan) ?? false;
+  const isCloudBillingAvailable = useIsCloudBillingAvailable();
 
   if (!organization) return [];
 
   return getOrganizationSettingsPages({
     organization,
-    showBillingSettings,
+    showBillingSettings: showBillingSettings && isCloudBillingAvailable,
     showOrgApiKeySettings,
     isLangfuseCloud,
-    t,
   });
 }
 
@@ -48,39 +49,40 @@ export const getOrganizationSettingsPages = ({
   showBillingSettings,
   showOrgApiKeySettings,
   isLangfuseCloud,
-  t,
 }: {
   organization: { id: string; name: string; metadata: Record<string, unknown> };
   showBillingSettings: boolean;
   showOrgApiKeySettings: boolean;
   isLangfuseCloud: boolean;
-  t: (key: string) => string;
 }): OrganizationSettingsPage[] => [
   {
-    title: t("organization.settings.general"),
+    title: "General",
     slug: "index",
     cmdKKeywords: ["name", "id", "delete"],
     content: (
       <div className="flex flex-col gap-6">
         <RenameOrganization />
         <div>
-          <Header title={t("organization.settings.debugInformation")} />
+          <Header title="Debug Information" />
           <JSONView
-            title={t("organization.settings.metadata")}
+            title="Metadata"
             json={{
               name: organization.name,
               id: organization.id,
               ...organization.metadata,
+              ...(env.NEXT_PUBLIC_LANGFUSE_CLOUD_REGION && {
+                cloudRegion: env.NEXT_PUBLIC_LANGFUSE_CLOUD_REGION,
+              }),
             }}
           />
         </div>
+        <AIFeatureSwitch />
         <SettingsDangerZone
           items={[
             {
-              title: t("organization.settings.deleteOrganization"),
-              description: t(
-                "organization.settings.deleteOrganizationDescription",
-              ),
+              title: "Delete this organization",
+              description:
+                "Once you delete an organization, there is no going back. Please be certain.",
               button: <DeleteOrganizationButton />,
             },
           ]}
@@ -89,7 +91,7 @@ export const getOrganizationSettingsPages = ({
     ),
   },
   {
-    title: t("organization.settings.apiKeys"),
+    title: "API Keys",
     slug: "api-keys",
     content: (
       <div className="flex flex-col gap-6">
@@ -99,13 +101,13 @@ export const getOrganizationSettingsPages = ({
     show: showOrgApiKeySettings,
   },
   {
-    title: t("organization.settings.members"),
+    title: "Members",
     slug: "members",
     cmdKKeywords: ["invite", "user", "rbac"],
     content: (
       <div className="flex flex-col gap-6">
         <div>
-          <Header title={t("organization.settings.organizationMembers")} />
+          <Header title="Organization Members" />
           <MembersTable orgId={organization.id} />
         </div>
         <div>
@@ -115,7 +117,7 @@ export const getOrganizationSettingsPages = ({
     ),
   },
   {
-    title: t("organization.settings.billing"),
+    title: "Billing",
     slug: "billing",
     cmdKKeywords: ["payment", "subscription", "plan", "invoice"],
     content: <BillingSettings />,
@@ -129,14 +131,13 @@ export const getOrganizationSettingsPages = ({
     show: isLangfuseCloud,
   },
   {
-    title: t("organization.settings.projects"),
+    title: "Projects",
     slug: "projects",
     href: `/organization/${organization.id}`,
   },
 ];
 
 const OrgSettingsPage = () => {
-  const { t } = useTranslation();
   const organization = useQueryOrganization();
   const router = useRouter();
   const { page } = router.query;
@@ -147,7 +148,7 @@ const OrgSettingsPage = () => {
   return (
     <ContainerPage
       headerProps={{
-        title: t("organization.settings.title"),
+        title: "Organization Settings",
       }}
     >
       <PagedSettingsContainer

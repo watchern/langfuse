@@ -3,3 +3,7 @@ export * from "./types";
 export * from "./mapDashboards";
 export * from "./promptsTable";
 export * from "./datasetItemsTable";
+export * from "./mapDatasetRunsTable";
+export * from "./datasetRunsTable";
+export * from "./datasetRunItemsTable";
+export * from "./usersTable";

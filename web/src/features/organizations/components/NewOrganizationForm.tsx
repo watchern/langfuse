@@ -25,15 +25,13 @@ import { useSession } from "next-auth/react";
 import { organizationFormSchema } from "@/src/features/organizations/utils/organizationNameSchema";
 import { usePostHogClientCapture } from "@/src/features/posthog-analytics/usePostHogClientCapture";
 import { SurveyName } from "@prisma/client";
-import { env } from "@/src/env.mjs";
-import { useTranslation } from "react-i18next";
+import { useLangfuseCloudRegion } from "@/src/features/organizations/hooks";
 
 export const NewOrganizationForm = ({
   onSuccess,
 }: {
   onSuccess: (orgId: string) => void;
 }) => {
-  const { t } = useTranslation();
   const { update: updateSession } = useSession();
 
   const form = useForm({
@@ -50,7 +48,7 @@ export const NewOrganizationForm = ({
   });
   const createSurveyMutation = api.surveys.create.useMutation();
   const watchedType = form.watch("type");
-  const isCloud = Boolean(env.NEXT_PUBLIC_LANGFUSE_CLOUD_REGION);
+  const { isLangfuseCloud } = useLangfuseCloudRegion();
 
   function onSubmit(values: z.infer<typeof organizationFormSchema>) {
     capture("organizations:new_form_submit");
@@ -60,7 +58,7 @@ export const NewOrganizationForm = ({
       })
       .then(async (org) => {
         // Submit survey with organization data only on Cloud and if type is provided
-        if (isCloud && values.type) {
+        if (isLangfuseCloud && values.type) {
           const surveyResponse: Record<string, string> = {
             type: values.type,
           };
@@ -103,13 +101,19 @@ export const NewOrganizationForm = ({
         onSubmit={form.handleSubmit(onSubmit)}
         className="space-y-3"
         data-testid="new-org-form"
+        onKeyDown={(e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+            e.preventDefault();
+            void form.handleSubmit(onSubmit)();
+          }
+        }}
       >
         <FormField
           control={form.control}
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t("organization.forms.organizationName")}</FormLabel>
+              <FormLabel>Organization name</FormLabel>
               <FormControl>
                 <Input
                   placeholder="my-org"
@@ -121,41 +125,29 @@ export const NewOrganizationForm = ({
             </FormItem>
           )}
         />
-        {isCloud && (
+        {isLangfuseCloud && (
           <>
             <FormField
               control={form.control}
               name="type"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("organization.forms.type")}</FormLabel>
+                  <FormLabel>Type</FormLabel>
                   <FormDescription>
-                    {t("organization.forms.typeDescription")}
+                    What would best describe your organization?
                   </FormDescription>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger ref={field.ref}>
-                        <SelectValue
-                          placeholder={t("organization.forms.pleaseChoose")}
-                        />
+                        <SelectValue placeholder="Please choose" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="Personal">
-                        {t("organization.forms.personal")}
-                      </SelectItem>
-                      <SelectItem value="Educational">
-                        {t("organization.forms.educational")}
-                      </SelectItem>
-                      <SelectItem value="Company">
-                        {t("organization.forms.company")}
-                      </SelectItem>
-                      <SelectItem value="Startup">
-                        {t("organization.forms.startup")}
-                      </SelectItem>
-                      <SelectItem value="Agency">
-                        {t("organization.forms.agency")}
-                      </SelectItem>
+                      <SelectItem value="Personal">Personal</SelectItem>
+                      <SelectItem value="Educational">Educational</SelectItem>
+                      <SelectItem value="Company">Company</SelectItem>
+                      <SelectItem value="Startup">Startup</SelectItem>
+                      <SelectItem value="Agency">Agency</SelectItem>
                       <SelectItem value="N/A">N/A</SelectItem>
                     </SelectContent>
                   </Select>
@@ -169,18 +161,14 @@ export const NewOrganizationForm = ({
                 name="size"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("organization.forms.size")}</FormLabel>
+                    <FormLabel>{watchedType} size</FormLabel>
                     <FormDescription>
-                      {t("organization.forms.sizeDescription", {
-                        type: watchedType,
-                      })}
+                      How many people are in your {watchedType}?
                     </FormDescription>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger ref={field.ref}>
-                          <SelectValue
-                            placeholder={t("organization.forms.pleaseChoose")}
-                          />
+                          <SelectValue placeholder="Please choose" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -189,7 +177,7 @@ export const NewOrganizationForm = ({
                         <SelectItem value="50-99">50-99</SelectItem>
                         <SelectItem value="100-299">100-299</SelectItem>
                         <SelectItem value="More than 300">
-                          {t("organization.forms.sizeOptions.300+")}
+                          More than 300
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -201,7 +189,7 @@ export const NewOrganizationForm = ({
           </>
         )}
         <Button type="submit" loading={createOrgMutation.isPending}>
-          {t("organization.forms.create")}
+          Create
         </Button>
       </form>
     </Form>

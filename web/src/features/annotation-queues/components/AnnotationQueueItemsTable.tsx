@@ -36,7 +36,7 @@ import {
 import { Checkbox } from "@/src/components/ui/checkbox";
 import { useHasProjectAccess } from "@/src/features/rbac/utils/checkProjectAccess";
 import { StatusBadge } from "@/src/components/layouts/status-badge";
-import { useTranslation } from "react-i18next";
+import TableIdOrName from "@/src/components/table/table-id";
 
 const QueueItemTableMultiSelectAction = ({
   selectedItemIds,
@@ -47,7 +47,6 @@ const QueueItemTableMultiSelectAction = ({
   projectId: string;
   onDeleteSuccess: () => void;
 }) => {
-  const { t } = useTranslation();
   const utils = api.useUtils();
   const [open, setOpen] = useState(false);
 
@@ -67,9 +66,7 @@ const QueueItemTableMultiSelectAction = ({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button disabled={selectedItemIds.length < 1}>
-            {t("annotationQueue.itemsTable.actionsSelected", {
-              count: selectedItemIds.length,
-            })}
+            Actions ({selectedItemIds.length} selected)
             <ChevronDown className="h-5 w-5" />
           </Button>
         </DropdownMenuTrigger>
@@ -81,7 +78,7 @@ const QueueItemTableMultiSelectAction = ({
             }}
           >
             <Trash className="mr-2 h-4 w-4" />
-            <span>{t("common.actions.delete")}</span>
+            <span>Delete</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -95,11 +92,11 @@ const QueueItemTableMultiSelectAction = ({
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {t("annotationQueue.itemsTable.deleteQueueItems")}
-            </DialogTitle>
+            <DialogTitle>Delete queue items</DialogTitle>
             <DialogDescription>
-              {t("annotationQueue.itemsTable.deleteConfirmation")}
+              This action cannot be undone and removes the selected annotation
+              queue item(s), but
+              <strong> does not delete associated scores.</strong>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="sm:justify-start">
@@ -119,7 +116,7 @@ const QueueItemTableMultiSelectAction = ({
                   });
               }}
             >
-              {t("common.actions.delete")} {selectedItemIds.length} item(s)
+              Delete {selectedItemIds.length} item(s)
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -130,6 +127,7 @@ const QueueItemTableMultiSelectAction = ({
 
 export type QueueItemRowData = {
   id: string;
+  sourceId: string;
   status: AnnotationQueueStatus;
   completedAt: string;
   annotatorUser: {
@@ -166,7 +164,6 @@ export function AnnotationQueueItemsTable({
   projectId: string;
   queueId: string;
 }) {
-  const { t } = useTranslation();
   const [paginationState, setPaginationState] = useQueryParams({
     pageIndex: withDefault(NumberParam, 0),
     pageSize: withDefault(NumberParam, 50),
@@ -186,7 +183,8 @@ export function AnnotationQueueItemsTable({
       id: "select",
       accessorKey: "select",
       size: 30,
-      isPinned: true,
+      isPinnedLeft: true,
+      isFixedPosition: true,
       header: ({ table }) => {
         return (
           <div className="flex h-full items-center">
@@ -223,10 +221,10 @@ export function AnnotationQueueItemsTable({
     },
     {
       accessorKey: "id",
-      header: t("common.table.id"),
+      header: "Id",
       id: "id",
       size: 70,
-      isPinned: true,
+      isFixedPosition: true,
       cell: ({ row }) => {
         const id: QueueItemRowData["id"] = row.getValue("id");
         return (
@@ -239,7 +237,7 @@ export function AnnotationQueueItemsTable({
     },
     {
       accessorKey: "objectType",
-      header: t("common.table.type"),
+      header: "Type",
       id: "objectType",
       size: 50,
       cell: ({ row }) => {
@@ -250,9 +248,10 @@ export function AnnotationQueueItemsTable({
     },
     {
       accessorKey: "source",
-      header: t("common.table.source"),
+      header: "Source",
       headerTooltip: {
-        description: t("annotationQueue.itemsTable.sourceDescription"),
+        description:
+          "Link to the source trace, observation or session based on which this item was added",
       },
       id: "source",
       size: 50,
@@ -291,8 +290,20 @@ export function AnnotationQueueItemsTable({
       },
     },
     {
+      accessorKey: "sourceId",
+      header: "Source ID",
+      id: "sourceId",
+      size: 50,
+      cell: ({ row }) => {
+        const sourceId: QueueItemRowData["sourceId"] = row.getValue("sourceId");
+        return <TableIdOrName value={sourceId} />;
+      },
+      enableHiding: true,
+      defaultHidden: true,
+    },
+    {
       accessorKey: "status",
-      header: t("common.batchExports.status"),
+      header: "Status",
       id: "status",
       size: 60,
       cell: ({ row }) => {
@@ -308,7 +319,7 @@ export function AnnotationQueueItemsTable({
     },
     {
       accessorKey: "completedAt",
-      header: t("annotationQueue.itemsTable.completedAt"),
+      header: "Completed At",
       id: "completedAt",
       defaultHidden: true,
       enableHiding: true,
@@ -316,7 +327,7 @@ export function AnnotationQueueItemsTable({
     },
     {
       accessorKey: "annotatorUser",
-      header: t("annotationQueue.itemsTable.completedBy"),
+      header: "Completed by",
       id: "annotatorUser",
       enableHiding: true,
       size: 80,
@@ -331,7 +342,7 @@ export function AnnotationQueueItemsTable({
             <Avatar className="h-7 w-7">
               <AvatarImage
                 src={image ?? undefined}
-                alt={userName ?? t("annotationQueue.itemsTable.userAvatar")}
+                alt={userName ?? "User Avatar"}
               />
               <AvatarFallback>
                 {userName
@@ -362,6 +373,7 @@ export function AnnotationQueueItemsTable({
         userName: item.annotatorUserName ?? undefined,
         image: item.annotatorUserImage ?? undefined,
       },
+      sourceId: item.objectId,
     };
 
     switch (item.objectType) {
@@ -454,7 +466,8 @@ export function AnnotationQueueItemsTable({
                 }
         }
         help={{
-          description: t("annotationQueue.itemsTable.noItemsDescription"),
+          description:
+            "Add traces and/or observations to your annotation queue to have them annotated by your team across predefined dimensions.",
           href: "https://langfuse.com/docs/evaluation/evaluation-methods/llm-as-a-judge",
         }}
         pagination={{

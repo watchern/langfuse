@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useTranslation } from "react-i18next";
 import {
   NumberParam,
   StringParam,
@@ -87,26 +86,25 @@ const getJsCode = (
   name: string,
   version: number,
   labels: string[],
-) => `import { Langfuse } from "langfuse";
+) => `import { LangfuseClient } from "@langfuse/client";
 
 // Initialize the Langfuse client
-const langfuse = new Langfuse();
+const langfuse = new LangfuseClient();
 
 // Get production prompt
-const prompt = await langfuse.getPrompt("${name}");
+const prompt = await langfuse.prompt.get("${name}");
 
 // Get by label
 // You can use as many labels as you'd like to identify different deployment targets
-${labels.length > 0 ? labels.map((label) => `const prompt = await langfuse.getPrompt("${name}", undefined, { label: "${label}" })`).join("\n") : ""}
+${labels.length > 0 ? labels.map((label) => `const prompt = await langfuse.prompt.get("${name}", { label: "${label}" })`).join("\n") : ""}
 
 // Get by version number, usually not recommended as it requires code changes to deploy new prompt versions
-langfuse.getPrompt("${name}", ${version})
+await langfuse.prompt.get("${name}", { version: ${version} })
 `;
 
 export const PromptDetail = ({
   promptName: promptNameProp,
 }: { promptName?: string } = {}) => {
-  const { t } = useTranslation();
   const projectId = useProjectIdFromURL();
   const capture = usePostHogClientCapture();
   const router = useRouter();
@@ -199,10 +197,10 @@ export const PromptDetail = ({
     void utils.datasets.baseRunDataByDatasetId.invalidate();
     void utils.datasets.runsByDatasetId.invalidate();
     showSuccessToast({
-      title: "Dataset run triggered successfully",
-      description: "Waiting for dataset run to complete...",
+      title: "Experiment triggered successfully",
+      description: "Waiting for experiment to complete...",
       link: {
-        text: "View dataset run",
+        text: "View experiment",
         href: `/project/${projectId}/datasets/${data.datasetId}/compare?runs=${data.runId}`,
       },
     });
@@ -228,14 +226,19 @@ export const PromptDetail = ({
     ).data?.tags ?? []
   ).map((t) => t.value);
 
-  const commentCounts = api.comments.getCountByObjectId.useQuery(
+  const promptIds = useMemo(
+    () => promptHistory.data?.promptVersions.map((p) => p.id) ?? [],
+    [promptHistory.data?.promptVersions],
+  );
+
+  const commentCounts = api.comments.getCountByObjectIds.useQuery(
     {
       projectId: projectId as string,
-      objectId: prompt?.id as string,
       objectType: "PROMPT",
+      objectIds: promptIds,
     },
     {
-      enabled: Boolean(projectId) && Boolean(prompt?.id),
+      enabled: Boolean(projectId) && promptIds.length > 0,
       trpc: {
         context: {
           skipBatch: true,
@@ -276,6 +279,8 @@ export const PromptDetail = ({
     <Page
       headerProps={{
         title: prompt.name,
+        titleTooltip:
+          "Prompt names cannot be changed. Instead, duplicate this prompt to a different name.",
         itemType: "PROMPT",
         help: {
           description:
@@ -335,14 +340,14 @@ export const PromptDetail = ({
               onClick={() => {
                 capture("prompts:update_form_open");
               }}
-              className="h-6 w-6 shrink-0 px-1 md:h-8 md:w-fit md:px-3"
+              className="h-6 w-6 shrink-0 px-1 lg:h-8 lg:w-fit lg:px-3"
             >
               <Link
                 className="grid w-full place-items-center md:grid-flow-col"
                 href={`/project/${projectId}/prompts/new?promptId=${encodeURIComponent(prompt.id)}`}
               >
                 <Plus className="h-4 w-4 md:mr-2" />
-                <span className="hidden md:inline">New</span>
+                <span className="hidden lg:inline">New version</span>
               </Link>
             </Button>
           </div>
@@ -355,6 +360,7 @@ export const PromptDetail = ({
                 setCurrentPromptLabel(null);
               }}
               totalCount={promptHistory.data.totalCount}
+              commentCounts={commentCounts.data}
             />
           </div>
         </Command>
@@ -412,11 +418,11 @@ export const PromptDetail = ({
                       >
                         <FlaskConical className="h-4 w-4" />
                         <span className="hidden md:ml-2 md:inline">
-                          Dataset run
+                          Run experiment
                         </span>
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-h-[90vh] overflow-y-auto">
+                    <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
                       <CreateExperimentsForm
                         key={`create-experiment-form-${prompt.id}`}
                         projectId={projectId as string}
@@ -539,7 +545,8 @@ export const PromptDetail = ({
                         projectId as string,
                         prompt.prompt,
                       )}
-                      title={t("prompt.detail.textPrompt")}
+                      originalContent={prompt.prompt}
+                      title="Text Prompt"
                     />
                   )
                 ) : (

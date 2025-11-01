@@ -38,10 +38,8 @@ import { useEvaluatorDefaults } from "@/src/features/experiments/hooks/useEvalua
 import { useExperimentEvaluatorData } from "@/src/features/experiments/hooks/useExperimentEvaluatorData";
 import { EvaluatorForm } from "@/src/features/evals/components/evaluator-form";
 import useLocalStorage from "@/src/components/useLocalStorage";
-import { useTranslation } from "react-i18next";
 
 export default function Dataset() {
-  const { t } = useTranslation();
   const router = useRouter();
   const capture = usePostHogClientCapture();
   const projectId = router.query.projectId as string;
@@ -87,10 +85,10 @@ export default function Dataset() {
     void utils.datasets.runsByDatasetId.invalidate();
     void utils.datasets.baseRunDataByDatasetId.invalidate();
     showSuccessToast({
-      title: t("dataset.actions.runTriggered"),
-      description: t("dataset.actions.runTriggeredDescription"),
+      title: "Experiment triggered successfully",
+      description: "Waiting for experiment to complete...",
       link: {
-        text: t("dataset.actions.viewRun"),
+        text: "View experiment",
         href: `/project/${projectId}/datasets/${data.datasetId}/compare?runs=${data.runId}`,
       },
     });
@@ -121,7 +119,7 @@ export default function Dataset() {
 
   const {
     activeEvaluators,
-    inActiveEvaluators,
+    pausedEvaluators,
     selectedEvaluatorData,
     showEvaluatorForm,
     handleConfigureEvaluator,
@@ -157,10 +155,7 @@ export default function Dataset() {
         title: dataset.data?.name ?? "",
         itemType: "DATASET",
         breadcrumb: [
-          {
-            name: t("dataset.pages.title"),
-            href: `/project/${projectId}/datasets`,
-          },
+          { name: "Datasets", href: `/project/${projectId}/datasets` },
         ],
         help: dataset.data?.description
           ? {
@@ -168,7 +163,7 @@ export default function Dataset() {
             }
           : undefined,
         tabsProps: {
-          tabs: getDatasetTabs(projectId, datasetId, t),
+          tabs: getDatasetTabs(projectId, datasetId),
           activeTab: DATASET_TABS.RUNS,
         },
         actionButtonsRight: (
@@ -183,12 +178,10 @@ export default function Dataset() {
                   onClick={() => capture("dataset_run:new_form_open")}
                 >
                   <FlaskConical className="h-4 w-4" />
-                  <span className="ml-2 hidden md:block">
-                    {t("dataset.actions.newDatasetRun")}
-                  </span>
+                  <span className="ml-2 hidden md:block">Run experiment</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-h-[90vh] overflow-y-auto">
+              <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
                 <CreateExperimentsForm
                   key={`create-experiment-form-${datasetId}`}
                   projectId={projectId as string}
@@ -211,7 +204,7 @@ export default function Dataset() {
                   onConfigureTemplate={handleConfigureEvaluator}
                   onSelectEvaluator={handleSelectEvaluator}
                   activeTemplateIds={activeEvaluators}
-                  inactiveTemplateIds={inActiveEvaluators}
+                  inactiveTemplateIds={pausedEvaluators}
                   disabled={!hasEvalWriteAccess}
                 />
               </div>
@@ -271,7 +264,7 @@ export default function Dataset() {
                   <DropdownMenuItem asChild>
                     <Link href={`/project/${projectId}/evals?target=dataset`}>
                       <Bot className="ml-1 mr-2 h-4 w-4" />
-                      {t("dataset.actions.manageEvaluators")}
+                      Manage Evaluators
                     </Link>
                   </DropdownMenuItem>
                 )}
@@ -300,9 +293,8 @@ export default function Dataset() {
           <DialogContent className="max-h-[90vh] max-w-screen-md overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {selectedEvaluatorData.evaluator.id
-                  ? t("dataset.newDatasetRunForm.editEvaluator")
-                  : t("dataset.newDatasetRunForm.configureEvaluator")}
+                {selectedEvaluatorData.evaluator.id ? "Edit" : "Configure"}{" "}
+                Evaluator
               </DialogTitle>
             </DialogHeader>
             <EvaluatorForm

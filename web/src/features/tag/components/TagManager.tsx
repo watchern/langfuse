@@ -65,7 +65,13 @@ const TagManager = ({
 
   if (!hasAccess) {
     return (
-      <div className="flex gap-x-1 gap-y-1">
+      <div
+        className={cn(
+          "flex gap-x-1 gap-y-1",
+          !isTableCell && "flex-wrap",
+          className,
+        )}
+      >
         <TagList
           selectedTags={selectedTags}
           isLoading={isLoading}
@@ -90,8 +96,8 @@ const TagManager = ({
         <div
           className={cn(
             "flex gap-x-1 gap-y-1",
-            className,
             !isTableCell && "flex-wrap",
+            className,
           )}
         >
           <TagList
@@ -104,6 +110,11 @@ const TagManager = ({
       <PopoverContent
         className="space-y-2"
         onClick={(e) => {
+          if (isTableCell) {
+            e.stopPropagation();
+          }
+        }}
+        onKeyDown={(e) => {
           if (isTableCell) {
             e.stopPropagation();
           }

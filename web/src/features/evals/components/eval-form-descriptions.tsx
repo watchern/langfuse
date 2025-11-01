@@ -1,6 +1,5 @@
 import DocPopup from "@/src/components/layouts/doc-popup";
 import { Label } from "@/src/components/ui/label";
-import { useTranslation } from "react-i18next";
 
 export function VariableMappingDescription(p: {
   title: string;
@@ -20,32 +19,21 @@ export function TimeScopeDescription(props: {
   timeScope: ("NEW" | "EXISTING")[] | undefined;
   target: "trace" | "dataset_item" | undefined;
 }) {
-  const { t } = useTranslation();
-
   if (!props.timeScope || props.timeScope.length === 0) {
-    return t("evaluation.eval.form.selectTimeScope");
+    return "Select a time scope to run this configuration on.";
   }
 
-  // Determine scope text based on timeScope
-  const scope =
-    props.timeScope?.includes("NEW") && props.timeScope?.includes("EXISTING")
-      ? t("evaluation.eval.pages.allFutureAndExisting")
-      : props.timeScope?.includes("NEW")
-        ? t("evaluation.eval.pages.allFuture")
-        : t("evaluation.eval.pages.allExisting");
-
-  // Determine target text based on target type
-  const target =
-    props.target === "trace"
-      ? t("evaluation.eval.pages.traces")
-      : t("evaluation.eval.pages.datasetRunItems");
-
   return (
-    <div>
-      {t("evaluation.eval.pages.thisConfigurationWillTarget", {
-        scope,
-        target,
-      })}
-    </div>
+    <span>
+      This configuration will target{" "}
+      {props.timeScope?.includes("NEW") && props.timeScope?.includes("EXISTING")
+        ? "all future and existing"
+        : props.timeScope?.includes("NEW")
+          ? "all future"
+          : "all existing"}{" "}
+      {props.target === "trace" ? "traces" : "dataset run items"} that match
+      these filters. Please note that it might take a while for your data to be
+      evaluated.
+    </span>
   );
 }

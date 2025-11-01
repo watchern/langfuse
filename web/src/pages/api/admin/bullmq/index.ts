@@ -7,6 +7,7 @@ import {
   IngestionQueue,
   TraceUpsertQueue,
   IngestionEvent,
+  OtelIngestionQueue,
 } from "@langfuse/shared/src/server";
 import { AdminApiAuthService } from "@/src/ee/features/admin-api/server/adminApiAuth";
 
@@ -52,7 +53,11 @@ export default async function handler(
       return;
     }
 
-    if (!AdminApiAuthService.handleAdminAuth(req, res, false)) {
+    if (
+      !AdminApiAuthService.handleAdminAuth(req, res, {
+        isAllowedOnLangfuseCloud: true,
+      })
+    ) {
       return;
     }
 
@@ -60,6 +65,7 @@ export default async function handler(
       const queues: string[] = Object.values(QueueName);
       queues.push(...IngestionQueue.getShardNames());
       queues.push(...TraceUpsertQueue.getShardNames());
+      queues.push(...OtelIngestionQueue.getShardNames());
       const queueCounts = await Promise.all(
         queues.map(async (queueName) => {
           try {
@@ -68,11 +74,15 @@ export default async function handler(
               queue = IngestionQueue.getInstance({ shardName: queueName });
             } else if (queueName.startsWith(QueueName.TraceUpsert)) {
               queue = TraceUpsertQueue.getInstance({ shardName: queueName });
+            } else if (queueName.startsWith(QueueName.OtelIngestionQueue)) {
+              queue = OtelIngestionQueue.getInstance({ shardName: queueName });
             } else {
               queue = getQueue(
                 queueName as Exclude<
                   QueueName,
-                  QueueName.IngestionQueue | QueueName.TraceUpsert
+                  | QueueName.IngestionQueue
+                  | QueueName.TraceUpsert
+                  | QueueName.OtelIngestionQueue
                 >,
               );
             }
@@ -105,11 +115,15 @@ export default async function handler(
           queue = IngestionQueue.getInstance({ shardName: queueName });
         } else if (queueName.startsWith(QueueName.TraceUpsert)) {
           queue = TraceUpsertQueue.getInstance({ shardName: queueName });
+        } else if (queueName.startsWith(QueueName.OtelIngestionQueue)) {
+          queue = OtelIngestionQueue.getInstance({ shardName: queueName });
         } else {
           queue = getQueue(
             queueName as Exclude<
               QueueName,
-              QueueName.IngestionQueue | QueueName.TraceUpsert
+              | QueueName.IngestionQueue
+              | QueueName.TraceUpsert
+              | QueueName.OtelIngestionQueue
             >,
           );
         }
@@ -152,11 +166,15 @@ export default async function handler(
           queue = IngestionQueue.getInstance({ shardName: queueName });
         } else if (queueName.startsWith(QueueName.TraceUpsert)) {
           queue = TraceUpsertQueue.getInstance({ shardName: queueName });
+        } else if (queueName.startsWith(QueueName.OtelIngestionQueue)) {
+          queue = OtelIngestionQueue.getInstance({ shardName: queueName });
         } else {
           queue = getQueue(
             queueName as Exclude<
               QueueName,
-              QueueName.IngestionQueue | QueueName.TraceUpsert
+              | QueueName.IngestionQueue
+              | QueueName.TraceUpsert
+              | QueueName.OtelIngestionQueue
             >,
           );
         }

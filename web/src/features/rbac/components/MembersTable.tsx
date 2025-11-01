@@ -37,7 +37,8 @@ import Link from "next/link";
 import useColumnOrder from "@/src/features/column-visibility/hooks/useColumnOrder";
 import { SettingsTableCard } from "@/src/components/layouts/settings-table-card";
 import useSessionStorage from "@/src/components/useSessionStorage";
-import { useTranslation } from "react-i18next";
+import { useQueryParam, withDefault, StringParam } from "use-query-params";
+import { useEffect } from "react";
 
 export type MembersTableRow = {
   user: {
@@ -63,7 +64,6 @@ export function MembersTable({
   project?: { id: string; name: string };
   showSettingsCard?: boolean;
 }) {
-  const { t } = useTranslation();
   // Create a unique key for this table's pagination state
   const paginationKey = project
     ? `projectMembers_${project.id}_pagination`
@@ -87,9 +87,23 @@ export function MembersTable({
     },
   );
 
+  const [searchQuery, setSearchQuery] = useQueryParam(
+    "search",
+    withDefault(StringParam, null),
+  );
+
+  useEffect(() => {
+    setPaginationState((prev) => ({
+      pageIndex: 0,
+      pageSize: prev.pageSize,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
+
   const membersViaOrg = api.members.allFromOrg.useQuery(
     {
       orgId,
+      searchQuery: searchQuery ?? undefined,
       page: paginationState.pageIndex,
       limit: paginationState.pageSize,
     },
@@ -99,8 +113,8 @@ export function MembersTable({
   );
   const membersViaProject = api.members.allFromProject.useQuery(
     {
-      orgId,
       projectId: project?.id ?? "NOT ENABLED",
+      searchQuery: searchQuery ?? undefined,
       page: paginationState.pageIndex,
       limit: paginationState.pageSize,
     },
@@ -136,7 +150,7 @@ export function MembersTable({
     {
       accessorKey: "user",
       id: "user",
-      header: t("rbac.membersTable.name"),
+      header: "Name",
       cell: ({ row }) => {
         const { name, image } = row.getValue("user") as MembersTableRow["user"];
         return (
@@ -144,7 +158,7 @@ export function MembersTable({
             <Avatar className="h-7 w-7">
               <AvatarImage
                 src={image ?? undefined}
-                alt={name ?? t("rbac.membersTable.userAvatar")}
+                alt={name ?? "User Avatar"}
               />
               <AvatarFallback>
                 {name
@@ -164,14 +178,15 @@ export function MembersTable({
     {
       accessorKey: "email",
       id: "email",
-      header: t("rbac.membersTable.email"),
+      header: "Email",
     },
     {
       accessorKey: "orgRole",
       id: "orgRole",
-      header: t("rbac.membersTable.organizationRole"),
+      header: "Organization Role",
       headerTooltip: {
-        description: t("rbac.membersTable.organizationRoleDescription"),
+        description:
+          "The org-role is the default role for this user in this organization and applies to the organization and all its projects.",
         href: "https://langfuse.com/docs/administration/rbac",
       },
       cell: ({ row }) => {
@@ -206,16 +221,12 @@ export function MembersTable({
                     side="right"
                   >
                     <p className="text-xs">
-                      {
-                        t("rbac.membersTable.organizationRoleTooltip").split(
-                          "organization settings",
-                        )[0]
-                      }
+                      The organization-level role can to be edited in the{" "}
                       <Link
                         href={`/organization/${orgId}/settings/members`}
                         className="underline"
                       >
-                        {t("rbac.membersTable.organizationSettings")}
+                        organization settings
                       </Link>
                       .
                     </p>
@@ -234,9 +245,10 @@ export function MembersTable({
           {
             accessorKey: "projectRole",
             id: "projectRole",
-            header: t("rbac.membersTable.projectRole"),
+            header: "Project Role",
             headerTooltip: {
-              description: t("rbac.membersTable.projectRoleDescription"),
+              description:
+                "The role for this user in this specific project. This role overrides the default project role.",
               href: "https://langfuse.com/docs/administration/rbac",
             },
             cell: ({
@@ -251,8 +263,7 @@ export function MembersTable({
                 "meta",
               ) as MembersTableRow["meta"];
 
-              if (!projectRolesEntitlement)
-                return t("rbac.membersTable.naOnPlan");
+              if (!projectRolesEntitlement) return "N/A on plan";
 
               return (
                 <ProjectRoleDropdown
@@ -273,7 +284,7 @@ export function MembersTable({
     {
       accessorKey: "createdAt",
       id: "createdAt",
-      header: t("rbac.membersTable.memberSince"),
+      header: "Member Since",
       enableHiding: true,
       defaultHidden: true,
       cell: ({ row }) => {
@@ -284,7 +295,7 @@ export function MembersTable({
     {
       accessorKey: "meta",
       id: "meta",
-      header: t("rbac.membersTable.actions"),
+      header: "Actions",
       enableHiding: false,
       cell: ({ row }) => {
         const { orgMembershipId, userId } = row.getValue(
@@ -298,8 +309,8 @@ export function MembersTable({
                 if (
                   confirm(
                     userId === session.data?.user?.id
-                      ? t("rbac.membersTable.leaveOrganization")
-                      : t("rbac.membersTable.removeMember"),
+                      ? "Are you sure you want to leave the organization?"
+                      : "Are you sure you want to remove this member from the organization?",
                   )
                 ) {
                   mutDeleteMember.mutate({ orgId, orgMembershipId });
@@ -347,9 +358,9 @@ export function MembersTable({
   if (project ? !hasProjectViewAccess : !hasOrgViewAccess) {
     return (
       <Alert>
-        <AlertTitle>{t("rbac.membersTable.accessDenied")}</AlertTitle>
+        <AlertTitle>Access Denied</AlertTitle>
         <AlertDescription>
-          {t("rbac.membersTable.noPermissionViewMembers")}
+          You do not have permission to view members of this organization.
         </AlertDescription>
       </Alert>
     );
@@ -366,6 +377,14 @@ export function MembersTable({
         actionButtons={
           <CreateProjectMemberButton orgId={orgId} project={project} />
         }
+        searchConfig={{
+          metadataSearchFields: ["Name", "Email"],
+          updateQuery: setSearchQuery,
+          currentQuery: searchQuery ?? undefined,
+          tableAllowsFullTextSearch: false,
+          setSearchType: undefined,
+          searchType: undefined,
+        }}
         className={showSettingsCard ? "px-0" : undefined}
       />
       {showSettingsCard ? (
@@ -450,7 +469,6 @@ const OrgRoleDropdown = ({
   userId: string;
   hasCudAccess: boolean;
 }) => {
-  const { t } = useTranslation();
   const utils = api.useUtils();
   const session = useSession();
   const mut = api.members.updateOrgMembership.useMutation({
@@ -458,8 +476,8 @@ const OrgRoleDropdown = ({
       utils.members.invalidate();
       if (data.userId === session.data?.user?.id) void session.update();
       showSuccessToast({
-        title: t("rbac.membersTable.saved"),
-        description: t("rbac.membersTable.orgRoleUpdated"),
+        title: "Saved",
+        description: "Organization role updated successfully",
         duration: 2000,
       });
     },
@@ -472,7 +490,9 @@ const OrgRoleDropdown = ({
       onValueChange={(value) => {
         if (
           userId !== session.data?.user?.id ||
-          confirm(t("rbac.membersTable.changeOwnOrgRole"))
+          confirm(
+            "Are you sure that you want to change your own organization role?",
+          )
         ) {
           mut.mutate({
             orgId,
@@ -509,7 +529,6 @@ const ProjectRoleDropdown = ({
   projectId: string;
   hasCudAccess: boolean;
 }) => {
-  const { t } = useTranslation();
   const utils = api.useUtils();
   const session = useSession();
   const mut = api.members.updateProjectRole.useMutation({
@@ -517,8 +536,8 @@ const ProjectRoleDropdown = ({
       utils.members.invalidate();
       if (data.userId === session.data?.user?.id) void session.update();
       showSuccessToast({
-        title: t("rbac.membersTable.saved"),
-        description: t("rbac.membersTable.projectRoleUpdated"),
+        title: "Saved",
+        description: "Project role updated successfully",
         duration: 2000,
       });
     },
@@ -531,7 +550,7 @@ const ProjectRoleDropdown = ({
       onValueChange={(value) => {
         if (
           userId !== session.data?.user?.id ||
-          confirm(t("rbac.membersTable.changeOwnProjectRole"))
+          confirm("Are you sure that you want to change your own project role?")
         ) {
           mut.mutate({
             orgId,

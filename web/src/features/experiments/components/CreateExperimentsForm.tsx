@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Code2, Wand2, Cog, Zap } from "lucide-react";
 import { api } from "@/src/utils/api";
-import { useTranslation, Trans } from "react-i18next";
 import {
   Card,
   CardDescription,
@@ -21,7 +20,7 @@ import {
 import Link from "next/link";
 import { usePostHogClientCapture } from "@/src/features/posthog-analytics/usePostHogClientCapture";
 import { type CreateExperiment } from "@/src/features/experiments/types";
-import { PromptExperimentsForm } from "@/src/features/experiments/components/PromptExperimentsForm";
+import { MultiStepExperimentForm } from "@/src/features/experiments/components/MultiStepExperimentForm";
 import { RemoteExperimentUpsertForm } from "@/src/features/experiments/components/RemoteExperimentUpsertForm";
 import { RemoteExperimentTriggerModal } from "@/src/features/experiments/components/RemoteExperimentTriggerModal";
 import { Skeleton } from "@/src/components/ui/skeleton";
@@ -37,7 +36,7 @@ export const CreateExperimentsForm = ({
 }: {
   projectId: string;
   setFormOpen: (open: boolean) => void;
-  defaultValues?: Partial<CreateExperiment>;
+  defaultValues?: Partial<Pick<CreateExperiment, "promptId" | "datasetId">>;
   promptDefault?: {
     name: string;
     version: number;
@@ -56,7 +55,6 @@ export const CreateExperimentsForm = ({
   }) => Promise<void>;
   showSDKRunInfoPage?: boolean;
 }) => {
-  const { t } = useTranslation();
   const capture = usePostHogClientCapture();
   const [showPromptForm, setShowPromptForm] = useState(false);
   const [showRemoteExperimentUpsertForm, setShowRemoteExperimentUpsertForm] =
@@ -100,20 +98,18 @@ export const CreateExperimentsForm = ({
     return (
       <>
         <DialogHeader>
-          <DialogTitle>{t("dataset.datasetRunModal.title")}</DialogTitle>
+          <DialogTitle>Run Experiment</DialogTitle>
           <DialogDescription>
-            <Trans
-              i18nKey="dataset.datasetRunModal.descriptionWithLink"
-              components={{
-                link: (
-                  <Link
-                    href="https://langfuse.com/docs/evaluation/dataset-runs/datasets"
-                    target="_blank"
-                    className="underline"
-                  />
-                ),
-              }}
-            />
+            Experiments allow you to test iterations of your application or
+            prompt on a dataset. Learn more about experiments{" "}
+            <Link
+              href="https://langfuse.com/docs/evaluation/dataset-runs/datasets"
+              target="_blank"
+              className="underline"
+            >
+              here
+            </Link>
+            .
           </DialogDescription>
         </DialogHeader>
         <DialogBody className="pb-8">
@@ -122,29 +118,17 @@ export const CreateExperimentsForm = ({
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Wand2 className="size-4" />
-                  {t("dataset.datasetRunModal.viaUserInterface.title")}
+                  via User Interface
                 </CardTitle>
                 <CardDescription>
-                  {t("dataset.datasetRunModal.viaUserInterface.description")}
+                  Test single prompts and model configurations via Langfuse UI
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <ul className="list-disc space-y-2 pl-4 text-sm text-muted-foreground">
-                  <li>
-                    {t(
-                      "dataset.datasetRunModal.viaUserInterface.features.comparePromptVersions",
-                    )}
-                  </li>
-                  <li>
-                    {t(
-                      "dataset.datasetRunModal.viaUserInterface.features.compareModelConfigurations",
-                    )}
-                  </li>
-                  <li>
-                    {t(
-                      "dataset.datasetRunModal.viaUserInterface.features.noCodeRequired",
-                    )}
-                  </li>
+                  <li>Compare prompt versions</li>
+                  <li>Compare model configurations</li>
+                  <li>No code required</li>
                 </ul>
               </CardContent>
               <CardFooter className="mt-auto flex flex-row gap-2">
@@ -152,7 +136,7 @@ export const CreateExperimentsForm = ({
                   className="w-full"
                   onClick={() => setShowPromptForm(true)}
                 >
-                  {t("dataset.datasetRunModal.viaUserInterface.configure")}
+                  Configure
                 </Button>
                 <Button
                   variant="outline"
@@ -163,7 +147,7 @@ export const CreateExperimentsForm = ({
                   }
                 >
                   <Link href="https://langfuse.com/docs/evaluation/dataset-runs/native-run">
-                    {t("dataset.datasetRunModal.viaUserInterface.viewDocs")}
+                    View Docs
                   </Link>
                 </Button>
               </CardFooter>
@@ -173,27 +157,17 @@ export const CreateExperimentsForm = ({
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Code2 className="size-4" />
-                  {t("dataset.datasetRunModal.viaSDK.title")}
+                  via SDK / API
                 </CardTitle>
                 <CardDescription>
-                  {t("dataset.datasetRunModal.viaSDK.description")}
+                  Start any dataset run via the Langfuse SDKs
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <ul className="list-disc space-y-2 pl-4 text-sm text-muted-foreground">
-                  <li>
-                    {t("dataset.datasetRunModal.viaSDK.features.fullControl")}
-                  </li>
-                  <li>
-                    {t(
-                      "dataset.datasetRunModal.viaSDK.features.customEvaluationLogic",
-                    )}
-                  </li>
-                  <li>
-                    {t(
-                      "dataset.datasetRunModal.viaSDK.features.integrationWithCodebase",
-                    )}
-                  </li>
+                  <li>Full control over dataset run execution</li>
+                  <li>Custom evaluation logic</li>
+                  <li>Integration with your codebase</li>
                 </ul>
               </CardContent>
               <CardFooter className="mt-auto flex flex-row gap-2">
@@ -203,7 +177,7 @@ export const CreateExperimentsForm = ({
                       className="rounded-r-none"
                       onClick={() => setShowRemoteExperimentTriggerModal(true)}
                     >
-                      {t("common.actions.run")}
+                      Run
                     </Button>
                     <Button
                       className="rounded-l-none rounded-r-md border-l-2 px-2"
@@ -224,16 +198,16 @@ export const CreateExperimentsForm = ({
                   }
                 >
                   <Link
-                    href="https://langfuse.com/docs/evaluation/dataset-runs/datasets"
+                    href="https://langfuse.com/docs/evaluation/dataset-runs/remote-run"
                     target="_blank"
                   >
-                    {t("dataset.datasetRunModal.viaSDK.viewDocs")}
+                    View Docs
                   </Link>
                 </Button>
                 {!existingRemoteExperiment.data && (
                   <Button
                     variant="outline"
-                    title={t("dataset.actions.setupRemoteDatasetRunTrigger")}
+                    title="Set up remote dataset run in UI trigger"
                     className="h-8 w-8 flex-shrink-0"
                     size="icon"
                     onClick={() => setShowRemoteExperimentUpsertForm(true)}
@@ -276,15 +250,13 @@ export const CreateExperimentsForm = ({
   }
 
   return (
-    <PromptExperimentsForm
+    <MultiStepExperimentForm
       projectId={projectId}
       setFormOpen={setFormOpen}
       defaultValues={defaultValues}
       promptDefault={promptDefault}
       handleExperimentSettled={handleExperimentSettled}
       handleExperimentSuccess={handleExperimentSuccess}
-      setShowPromptForm={setShowPromptForm}
-      showSDKRunInfoPage={showSDKRunInfoPage}
     />
   );
 };

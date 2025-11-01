@@ -103,7 +103,7 @@ const TracesPreview = memo(
       return {
         from: getDateFromOption({
           filterSource: "TABLE",
-          option: "24 hours",
+          option: "last1Day",
         }),
       } as TableDateRange;
     }, []);
@@ -205,7 +205,9 @@ export const InnerEvaluatorForm = (props: {
 
   const environmentFilterOptionsResponse =
     api.projects.environmentFilterOptions.useQuery(
-      { projectId: props.projectId },
+      {
+        projectId: props.projectId,
+      },
       {
         trpc: { context: { skipBatch: true } },
         refetchOnMount: false,
@@ -216,8 +218,23 @@ export const InnerEvaluatorForm = (props: {
     );
 
   const traceFilterOptions = useMemo(() => {
+    // Normalize API response to match TraceOptions type (count should be number, not string)
+    const normalized = traceFilterOptionsResponse.data
+      ? {
+          name: traceFilterOptionsResponse.data.name?.map((n) => ({
+            value: n.value,
+            count: Number(n.count),
+          })),
+          scores_avg: traceFilterOptionsResponse.data.scores_avg,
+          score_categories: traceFilterOptionsResponse.data.score_categories,
+          tags: traceFilterOptionsResponse.data.tags?.map((t) => ({
+            value: t.value,
+          })),
+        }
+      : {};
+
     return {
-      ...(traceFilterOptionsResponse.data ?? {}),
+      ...normalized,
       environment: environmentFilterOptionsResponse.data?.map((e) => ({
         value: e.environment,
       })),
@@ -1156,7 +1173,10 @@ export const InnerEvaluatorForm = (props: {
     <Form {...form}>
       <form
         // eslint-disable-next-line @typescript-eslint/no-misused-promises
-        onSubmit={form.handleSubmit(onSubmit)}
+        onSubmit={(e) => {
+          e.stopPropagation(); // Prevent event bubbling to parent forms
+          form.handleSubmit(onSubmit)(e);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter" && e.target instanceof HTMLInputElement) {
             e.preventDefault();

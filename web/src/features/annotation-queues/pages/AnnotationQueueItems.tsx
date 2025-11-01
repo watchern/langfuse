@@ -5,7 +5,6 @@ import { CardDescription } from "@/src/components/ui/card";
 import { Button } from "@/src/components/ui/button";
 import { ClipboardPen, Lock } from "lucide-react";
 import { Badge } from "@/src/components/ui/badge";
-import { getScoreDataTypeIcon } from "@/src/features/scores/components/ScoreDetailColumnHelpers";
 import Link from "next/link";
 import { CreateOrEditAnnotationQueueButton } from "@/src/features/annotation-queues/components/CreateOrEditAnnotationQueueButton";
 import { useHasProjectAccess } from "@/src/features/rbac/utils/checkProjectAccess";
@@ -19,10 +18,9 @@ import {
   SidePanelTitle,
 } from "@/src/components/ui/side-panel";
 import { SubHeaderLabel } from "@/src/components/layouts/header";
-import { useTranslation } from "react-i18next";
+import { getScoreDataTypeIcon } from "@/src/features/scores/lib/scoreColumns";
 
 export default function QueueItems() {
-  const { t } = useTranslation();
   const router = useRouter();
   const projectId = router.query.projectId as string;
   const queueId = router.query.queueId as string;
@@ -50,7 +48,7 @@ export default function QueueItems() {
         itemType: "ANNOTATION_QUEUE",
         breadcrumb: [
           {
-            name: t("annotationQueue.item.annotationQueues"),
+            name: "Annotation Queues",
             href: `/project/${projectId}/annotation-queues`,
           },
         ],
@@ -76,14 +74,12 @@ export default function QueueItems() {
           <AnnotationQueueItemsTable projectId={projectId} queueId={queueId} />
         </div>
         <SidePanel
-          mobileTitle={
-            queue.data?.name ?? t("annotationQueue.item.queueDetails")
-          }
+          mobileTitle={queue.data?.name ?? "Queue details"}
           id="queue-details"
         >
           <SidePanelHeader>
             <SidePanelTitle>
-              {queue.data?.name ?? t("annotationQueue.item.queueDetails")}
+              {queue.data?.name ?? "Queue details"}
             </SidePanelTitle>
             <CreateOrEditAnnotationQueueButton
               projectId={projectId}
@@ -101,9 +97,7 @@ export default function QueueItems() {
                   </CardDescription>
                 )}
                 <div className="flex flex-col gap-2">
-                  <SubHeaderLabel
-                    title={t("annotationQueue.queuesTable.scoreConfigs")}
-                  />
+                  <SubHeaderLabel title="Score Configs" />
                   <div className="flex flex-wrap gap-2">
                     {queue.data?.scoreConfigs.map((scoreConfig) => (
                       <Badge key={scoreConfig.id} variant="outline">

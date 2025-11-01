@@ -20,10 +20,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/src/components/ui/dropdown-menu";
-import { useTranslation } from "react-i18next";
+import { DatasetItemsOnboarding } from "@/src/components/onboarding/DatasetItemsOnboarding";
 
 export default function DatasetItems() {
-  const { t } = useTranslation();
   const router = useRouter();
   const projectId = router.query.projectId as string;
   const datasetId = router.query.datasetId as string;
@@ -32,6 +31,14 @@ export default function DatasetItems() {
     datasetId,
     projectId,
   });
+
+  const totalDatasetItemCount = api.datasets.countItemsByDatasetId.useQuery({
+    projectId,
+    datasetId,
+  });
+
+  const showOnboarding =
+    totalDatasetItemCount.isSuccess && totalDatasetItemCount.data === 0;
 
   return (
     <Page
@@ -44,22 +51,26 @@ export default function DatasetItems() {
             }
           : undefined,
         breadcrumb: [
-          {
-            name: t("dataset.pages.title"),
-            href: `/project/${projectId}/datasets`,
-          },
+          { name: "Datasets", href: `/project/${projectId}/datasets` },
         ],
         tabsProps: {
-          tabs: getDatasetTabs(projectId, datasetId, t),
+          tabs: getDatasetTabs(projectId, datasetId),
           activeTab: DATASET_TABS.ITEMS,
         },
         actionButtonsRight: (
           <>
-            <NewDatasetItemButton projectId={projectId} datasetId={datasetId} />
-            <UploadDatasetCsvButton
-              projectId={projectId}
-              datasetId={datasetId}
-            />
+            {!showOnboarding && (
+              <>
+                <NewDatasetItemButton
+                  projectId={projectId}
+                  datasetId={datasetId}
+                />
+                <UploadDatasetCsvButton
+                  projectId={projectId}
+                  datasetId={datasetId}
+                />
+              </>
+            )}
             <DetailPageNav
               currentId={datasetId}
               path={(entry) =>
@@ -110,7 +121,11 @@ export default function DatasetItems() {
         ),
       }}
     >
-      <DatasetItemsTable projectId={projectId} datasetId={datasetId} />
+      {showOnboarding ? (
+        <DatasetItemsOnboarding projectId={projectId} datasetId={datasetId} />
+      ) : (
+        <DatasetItemsTable projectId={projectId} datasetId={datasetId} />
+      )}
     </Page>
   );
 }

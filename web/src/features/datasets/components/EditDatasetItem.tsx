@@ -150,7 +150,7 @@ export const EditDatasetItem = ({
                 : t("dataset.actions.saved")}
             </Button>
           </div>
-          <div className="ph-no-capture flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto">
             <div className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <FormField

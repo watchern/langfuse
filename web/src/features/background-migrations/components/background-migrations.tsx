@@ -1,4 +1,3 @@
-import Header from "@/src/components/layouts/header";
 import { DataTable } from "@/src/components/table/data-table";
 import { DataTableToolbar } from "@/src/components/table/data-table-toolbar";
 import { type LangfuseColumnDef } from "@/src/components/table/types";
@@ -6,10 +5,9 @@ import { api } from "@/src/utils/api";
 import { type BackgroundMigration } from "@langfuse/shared";
 import { RetryBackgroundMigration } from "@/src/features/background-migrations/components/retry-background-migration";
 import { StatusBadge } from "@/src/components/layouts/status-badge";
-import { useTranslation } from "react-i18next";
+import Page from "@/src/components/layouts/page";
 
 export default function BackgroundMigrationsTable() {
-  const { t } = useTranslation();
   const backgroundMigrations = api.backgroundMigrations.all.useQuery();
 
   const columns = [
@@ -58,13 +56,13 @@ export default function BackgroundMigrationsTable() {
       accessorKey: "failedReason",
       id: "failedReason",
       enableColumnFilter: false,
-      header: t("common.backgroundMigrations.table.failedReason"),
+      header: "Failed Reason",
     },
     {
       accessorKey: "state",
       id: "state",
       enableColumnFilter: false,
-      header: t("common.backgroundMigrations.table.state"),
+      header: "State",
       cell: (row) => JSON.stringify(row.getValue()),
     },
     {
@@ -85,8 +83,11 @@ export default function BackgroundMigrationsTable() {
   ] as LangfuseColumnDef<BackgroundMigration>[];
 
   return (
-    <>
-      <Header title={t("common.backgroundMigrations.title")} />
+    <Page
+      headerProps={{
+        title: "Background Migrations",
+      }}
+    >
       <DataTableToolbar columns={columns} />
       <DataTable
         tableName={"backgroundMigrations"}
@@ -107,6 +108,6 @@ export default function BackgroundMigrationsTable() {
                 }
         }
       />
-    </>
+    </Page>
   );
 }

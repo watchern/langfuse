@@ -1,7 +1,6 @@
 import { Button } from "@/src/components/ui/button";
-import { chatAvailable, openChat } from "@/src/features/support-chat/PlainChat";
+import { useSupportDrawer } from "@/src/features/support-chat/SupportDrawerProvider";
 import { AlertTriangle, X } from "lucide-react";
-import { useTranslation } from "react-i18next";
 
 interface ErrorNotificationProps {
   error: string;
@@ -20,7 +19,7 @@ export const ErrorNotification: React.FC<ErrorNotificationProps> = ({
   toast,
   path,
 }) => {
-  const { t } = useTranslation();
+  const { setOpen } = useSupportDrawer();
   const isError = type === "ERROR";
   const textColor = isError
     ? "text-destructive-foreground"
@@ -53,25 +52,33 @@ export const ErrorNotification: React.FC<ErrorNotificationProps> = ({
         )}
         {path && (
           <div className={`text-sm leading-tight ${textColor}`}>
-            {t("ui.notification.error.path")}: {path}
+            Path: {path}
           </div>
         )}
 
-        {isError && chatAvailable && (
+        {isError && (
           <Button
             variant="errorNotification"
             size={"sm"}
             onClick={() => {
-              openChat();
+              setOpen(true);
             }}
           >
-            {t("common.actions.reportIssueToLangfuseTeam")}
+            Report issue to Langfuse team
           </Button>
         )}
       </div>
       <button
         className={`flex h-6 w-6 cursor-pointer items-start justify-end border-none bg-transparent p-0 ${textColor} transition-colors duration-200`}
         onClick={() => dismissToast(toast)}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+        }}
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+        }}
         aria-label="Close"
       >
         <X size={14} />

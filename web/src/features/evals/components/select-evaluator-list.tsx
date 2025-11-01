@@ -16,19 +16,25 @@ import { SetupDefaultEvalModelCard } from "@/src/features/evals/components/set-u
 import { useTemplateValidation } from "@/src/features/evals/hooks/useTemplateValidation";
 import { Card } from "@/src/components/ui/card";
 import { Skeleton } from "@/src/components/ui/skeleton";
-import { useTranslation } from "react-i18next";
+import { type EvalTemplate } from "@langfuse/shared";
 
 type SelectEvaluatorListProps = {
   projectId: string;
 };
 
 export function SelectEvaluatorList({ projectId }: SelectEvaluatorListProps) {
-  const { t } = useTranslation();
   const router = useRouter();
   const [isCreateTemplateOpen, setIsCreateTemplateOpen] = useState(false);
 
+  const handleSelectEvaluator = (template: EvalTemplate) => {
+    router.push(`/project/${projectId}/evals/new?evaluator=${template.id}`);
+  };
+
   const { isSelectionValid, selectedTemplate, setSelectedTemplate } =
-    useTemplateValidation({ projectId });
+    useTemplateValidation({
+      projectId,
+      onValidSelection: handleSelectEvaluator,
+    });
 
   // Fetch templates
   const templates = api.evals.allTemplates.useQuery(
@@ -46,18 +52,8 @@ export function SelectEvaluatorList({ projectId }: SelectEvaluatorListProps) {
     setIsCreateTemplateOpen(true);
   };
 
-  const handleSelectEvaluator = () => {
-    if (selectedTemplate) {
-      router.push(
-        `/project/${projectId}/evals/new?evaluator=${selectedTemplate.id}`,
-      );
-    }
-  };
-
   const handleTemplateSelect = (templateId: string) => {
-    const template = templates.data?.templates.find(
-      (template: any) => template.id === templateId,
-    );
+    const template = templates.data?.templates.find((t) => t.id === templateId);
     if (template) {
       setSelectedTemplate(template);
     }
@@ -71,11 +67,11 @@ export function SelectEvaluatorList({ projectId }: SelectEvaluatorListProps) {
             <Skeleton className="h-full w-full" />
           ) : templates.isError ? (
             <div className="py-8 text-center text-destructive">
-              {t("common.errors.error")}: {templates.error.message}
+              Error: {templates.error.message}
             </div>
           ) : templates.data?.templates.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">
-              {t("evaluation.eval.messages.noEvaluatorsFound")}
+              No evaluators found. Create a new evaluator to get started.
             </div>
           ) : (
             <div className="flex-1 overflow-hidden">
@@ -100,15 +96,9 @@ export function SelectEvaluatorList({ projectId }: SelectEvaluatorListProps) {
 
       <div className="mt-2 flex flex-row justify-end">
         <div className="flex justify-end gap-2">
-          <Button onClick={handleOpenCreateEvaluator} variant="outline">
+          <Button onClick={handleOpenCreateEvaluator}>
             <PlusIcon className="mr-2 h-4 w-4" />
-            {t("evaluation.eval.buttons.createCustomEvaluator")}
-          </Button>
-          <Button
-            onClick={handleSelectEvaluator}
-            disabled={!selectedTemplate || !isSelectionValid}
-          >
-            {t("evaluation.eval.buttons.useSelectedEvaluator")}
+            Create Custom Evaluator
           </Button>
         </div>
       </div>
@@ -119,9 +109,7 @@ export function SelectEvaluatorList({ projectId }: SelectEvaluatorListProps) {
       >
         <DialogContent className="max-h-[90vh] max-w-screen-md overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {t("evaluation.eval.dialog.createNewEvaluator")}
-            </DialogTitle>
+            <DialogTitle>Create new evaluator</DialogTitle>
           </DialogHeader>
           <EvalTemplateForm
             projectId={projectId}
@@ -135,12 +123,8 @@ export function SelectEvaluatorList({ projectId }: SelectEvaluatorListProps) {
                 setSelectedTemplate(newTemplate);
               }
               showSuccessToast({
-                title: t(
-                  "evaluation.eval.success.evaluatorCreatedSuccessfully",
-                ),
-                description: t(
-                  "evaluation.eval.success.youCanNowUseThisEvaluator",
-                ),
+                title: "Evaluator created successfully",
+                description: "You can now use this evaluator.",
               });
             }}
           />

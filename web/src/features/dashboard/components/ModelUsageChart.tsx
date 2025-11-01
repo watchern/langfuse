@@ -25,7 +25,6 @@ import {
   mapLegacyUiTableFilterToView,
 } from "@/src/features/query";
 import { type DatabaseRow } from "@/src/server/api/services/sqlInterface";
-import { useTranslation } from "react-i18next";
 
 export const ModelUsageChart = ({
   className,
@@ -46,7 +45,6 @@ export const ModelUsageChart = ({
   userAndEnvFilterState: FilterState;
   isLoading?: boolean;
 }) => {
-  const { t } = useTranslation();
   const {
     allModels,
     selectedModels,
@@ -84,7 +82,8 @@ export const ModelUsageChart = ({
       },
     ],
     timeDimension: {
-      granularity: dashboardDateRangeAggregationSettings[agg].date_trunc,
+      granularity:
+        dashboardDateRangeAggregationSettings[agg].dateTrunc ?? "day",
     },
     fromTimestamp: fromTimestamp.toISOString(),
     toTimestamp: toTimestamp.toISOString(),
@@ -134,7 +133,8 @@ export const ModelUsageChart = ({
         {
           type: "datetime",
           column: "startTime",
-          temporalUnit: dashboardDateRangeAggregationSettings[agg].date_trunc,
+          temporalUnit:
+            dashboardDateRangeAggregationSettings[agg].dateTrunc ?? "day",
         },
         {
           type: "string",
@@ -184,7 +184,8 @@ export const ModelUsageChart = ({
         {
           type: "datetime",
           column: "startTime",
-          temporalUnit: dashboardDateRangeAggregationSettings[agg].date_trunc,
+          temporalUnit:
+            dashboardDateRangeAggregationSettings[agg].dateTrunc ?? "day",
         },
         {
           type: "string",
@@ -286,41 +287,41 @@ export const ModelUsageChart = ({
 
   const data = [
     {
-      tabTitle: t("dashboard.modelUsageChart.costByModel"),
+      tabTitle: "Cost by model",
       data: costByModel,
       totalMetric: totalCostDashboardFormatted(totalCost),
-      metricDescription: t("dashboard.modelUsageChart.cost"),
+      metricDescription: `Cost`,
       formatter: oneValueUsdFormatter,
     },
     {
-      tabTitle: t("dashboard.modelUsageChart.costByType"),
+      tabTitle: "Cost by type",
       data: costByType,
       totalMetric: totalCostDashboardFormatted(totalCost),
-      metricDescription: t("dashboard.modelUsageChart.cost"),
+      metricDescription: `Cost`,
       formatter: oneValueUsdFormatter,
     },
     {
-      tabTitle: t("dashboard.modelUsageChart.unitsByModel"),
+      tabTitle: "Usage by model",
       data: unitsByModel,
       totalMetric: totalTokens
         ? compactNumberFormatter(totalTokens)
         : compactNumberFormatter(0),
-      metricDescription: t("dashboard.modelUsageChart.units"),
+      metricDescription: `Units`,
     },
     {
-      tabTitle: t("dashboard.modelUsageChart.unitsByType"),
+      tabTitle: "Usage by type",
       data: unitsByType,
       totalMetric: totalTokens
         ? compactNumberFormatter(totalTokens)
         : compactNumberFormatter(0),
-      metricDescription: t("dashboard.modelUsageChart.units"),
+      metricDescription: `Units`,
     },
   ];
 
   return (
     <DashboardCard
       className={className}
-      title={t("dashboard.modelUsageChart.title")}
+      title="Model Usage"
       isLoading={
         isLoading || (queryResult.isPending && selectedModels.length > 0)
       }
@@ -356,6 +357,7 @@ export const ModelUsageChart = ({
                   />
                 ) : (
                   <BaseTimeSeriesChart
+                    className="[&_text]:fill-muted-foreground [&_tspan]:fill-muted-foreground"
                     agg={agg}
                     data={item.data}
                     showLegend={true}

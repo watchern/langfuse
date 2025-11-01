@@ -31,7 +31,7 @@ export const ErrorPage = ({
   const newTargetPath = router.asPath;
 
   return (
-    <div className="flex h-screen flex-col items-center justify-center">
+    <div className="flex h-full flex-col items-center justify-center">
       <AlertCircle className="mb-4 h-12 w-12 text-dark-red" />
       <h1 className="mb-4 text-xl font-bold">{errorTitle}</h1>
       <p className="mb-6 text-center">{message}</p>

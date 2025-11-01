@@ -16,11 +16,17 @@ export function DeletePrompt({ promptName }: { promptName: string }) {
   const projectId = useProjectIdFromURL();
   const utils = api.useUtils();
   const [isOpen, setIsOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const hasAccess = useHasProjectAccess({ projectId, scope: "prompts:CUD" });
 
   const mutDeletePrompt = api.prompts.delete.useMutation({
     onSuccess: () => {
       void utils.prompts.invalidate();
+      setError(null);
+      setIsOpen(false);
+    },
+    onError: (error) => {
+      setError(error.message);
     },
   });
 
@@ -42,6 +48,12 @@ export function DeletePrompt({ promptName }: { promptName: string }) {
           </code>{" "}
           {t("prompt.delete.willError")}.
         </p>
+        {error && (
+          <div className="mb-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <p className="font-medium">Error:</p>
+            <p className="whitespace-pre-wrap">{error}</p>
+          </div>
+        )}
         <div className="flex justify-end space-x-4">
           <Button
             type="button"
@@ -52,12 +64,12 @@ export function DeletePrompt({ promptName }: { promptName: string }) {
                 console.error("Project ID is missing");
                 return;
               }
+              setError(null);
 
-              void mutDeletePrompt.mutateAsync({
+              void mutDeletePrompt.mutate({
                 projectId,
                 promptName,
               });
-              setIsOpen(false);
             }}
           >
             {t("prompt.delete.button")}

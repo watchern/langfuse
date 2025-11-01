@@ -29,19 +29,22 @@ import { TrashIcon } from "lucide-react";
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/src/components/ui/alert";
 import { startCase } from "lodash";
-import { useTranslation } from "react-i18next";
 
 type ApiKeyScope = "project" | "organization";
 type ApiKeyEntity = { id: string; note: string | null };
 
 export function ApiKeyList(props: { entityId: string; scope: ApiKeyScope }) {
-  const { t } = useTranslation();
   const { entityId, scope } = props;
   if (!entityId) {
     throw new Error(
       `${scope}Id is required for ApiKeyList with scope ${scope}`,
     );
   }
+
+  const envCode = `LANGFUSE_SECRET_KEY = "sk-lf-..."
+LANGFUSE_PUBLIC_KEY = "pk-lf-..."
+LANGFUSE_BASE_URL = "https://cloud.langfuse.com" # 🇪🇺 EU region
+# LANGFUSE_BASE_URL = "https://us.cloud.langfuse.com" # 🇺🇸 US region`;
 
   const hasProjectAccess = useHasProjectAccess({
     projectId: props.entityId,
@@ -70,11 +73,11 @@ export function ApiKeyList(props: { entityId: string; scope: ApiKeyScope }) {
   if (!hasAccess) {
     return (
       <div>
-        <Header title={t("project.settings.apiKeys.title")} />
+        <Header title="API Keys" />
         <Alert>
-          <AlertTitle>{t("project.settings.apiKeys.accessDenied")}</AlertTitle>
+          <AlertTitle>Access Denied</AlertTitle>
           <AlertDescription>
-            {t("project.settings.apiKeys.noPermission", { scope })}
+            You do not have permission to view API keys for this {scope}.
           </AlertDescription>
         </Alert>
       </div>
@@ -82,37 +85,29 @@ export function ApiKeyList(props: { entityId: string; scope: ApiKeyScope }) {
   }
 
   return (
-    <div>
+    <div className="space-y-4">
       <Header
-        title={
-          scope === "project"
-            ? t("project.settings.apiKeys.projectApiKeys")
-            : startCase(`${scope} API keys`)
-        }
-        // help={{
-        //   description: t("project.settings.apiKeys.learnMore", { scope }),
-        //   href:
-        //     scope === "project"
-        //       ? "https://langfuse.com/docs/api#authentication"
-        //       : "https://langfuse.com/docs/api#org-scoped-routes",
-        // }}
+        title={startCase(`${scope} API keys`)}
+        help={{
+          description: `Learn more about ${scope} API keys`,
+          href:
+            scope === "project"
+              ? "https://langfuse.com/docs/api#authentication"
+              : "https://langfuse.com/docs/api#org-scoped-routes",
+        }}
+        actionButtons={<CreateApiKeyButton entityId={entityId} scope={scope} />}
       />
+      <CodeView content={envCode} title=".env" />
       <Card className="mb-4 overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="hidden text-primary md:table-cell">
-                {t("project.settings.apiKeys.created")}
+                Created
               </TableHead>
-              <TableHead className="text-primary">
-                {t("project.settings.apiKeys.note")}
-              </TableHead>
-              <TableHead className="text-primary">
-                {t("project.settings.apiKeys.publicKey")}
-              </TableHead>
-              <TableHead className="text-primary">
-                {t("project.settings.apiKeys.secretKey")}
-              </TableHead>
+              <TableHead className="text-primary">Note</TableHead>
+              <TableHead className="text-primary">Public Key</TableHead>
+              <TableHead className="text-primary">Secret Key</TableHead>
               {/* <TableHead className="text-primary">Last used</TableHead> */}
               <TableHead />
             </TableRow>
@@ -120,8 +115,8 @@ export function ApiKeyList(props: { entityId: string; scope: ApiKeyScope }) {
           <TableBody className="text-muted-foreground">
             {apiKeysQuery.data?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center">
-                  {t("project.settings.apiKeys.none")}
+                <TableCell colSpan={5} className="text-center">
+                  None
                 </TableCell>
               </TableRow>
             ) : (
@@ -165,7 +160,6 @@ export function ApiKeyList(props: { entityId: string; scope: ApiKeyScope }) {
           </TableBody>
         </Table>
       </Card>
-      <CreateApiKeyButton entityId={entityId} scope={scope} />
     </div>
   );
 }

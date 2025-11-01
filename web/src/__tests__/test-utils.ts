@@ -6,6 +6,7 @@ import {
   getQueue,
   IngestionQueue,
   logger,
+  OtelIngestionQueue,
   QueueName,
   TraceUpsertQueue,
 } from "@langfuse/shared/src/server";
@@ -112,6 +113,7 @@ export const getQueues = () => {
     QueueName.BlobStorageIntegrationQueue,
     QueueName.DeadLetterRetryQueue,
     QueueName.PostHogIntegrationQueue,
+    QueueName.CloudFreeTierUsageThresholdQueue,
   ];
 
   return queues
@@ -123,12 +125,16 @@ export const getQueues = () => {
         ? IngestionQueue.getInstance({ shardName: queueName })
         : queueName.startsWith(QueueName.TraceUpsert)
           ? TraceUpsertQueue.getInstance({ shardName: queueName })
-          : getQueue(
-              queueName as Exclude<
-                QueueName,
-                QueueName.IngestionQueue | QueueName.TraceUpsert
-              >,
-            ),
+          : queueName.startsWith(QueueName.OtelIngestionQueue)
+            ? OtelIngestionQueue.getInstance({ shardName: queueName })
+            : getQueue(
+                queueName as Exclude<
+                  QueueName,
+                  | QueueName.IngestionQueue
+                  | QueueName.TraceUpsert
+                  | QueueName.OtelIngestionQueue
+                >,
+              ),
     );
 };
 
@@ -197,6 +203,7 @@ export async function makeAPICall<T = IngestionAPIResponse>(
   url: string,
   body?: unknown,
   auth?: string,
+  customHeaders?: Record<string, string>,
 ): Promise<{ body: T; status: number }> {
   const finalUrl = `http://localhost:3000${url.startsWith("/") ? url : `/${url}`}`;
   const authorization =
@@ -207,6 +214,7 @@ export async function makeAPICall<T = IngestionAPIResponse>(
       Accept: "application/json",
       "Content-Type": "application/json;charset=UTF-8",
       Authorization: authorization,
+      ...customHeaders,
     },
     ...(method !== "GET" &&
       body !== undefined && { body: JSON.stringify(body) }),

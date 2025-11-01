@@ -18,20 +18,22 @@ import { usePostHogClientCapture } from "@/src/features/posthog-analytics/usePos
 import { LoaderCircle } from "lucide-react";
 import { Input } from "@/src/components/ui/input";
 import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
 
 interface DataTablePaginationProps<TData> {
   table: Table<TData>;
   isLoading: boolean;
   paginationOptions?: number[];
+  hideTotalCount?: boolean;
+  canJumpPages?: boolean; // if we need a cursor (last_item_id), we can't jump pages
 }
 
 export function DataTablePagination<TData>({
   table,
   isLoading,
   paginationOptions = [10, 20, 30, 40, 50],
+  hideTotalCount = false,
+  canJumpPages = true,
 }: DataTablePaginationProps<TData>) {
-  const { t } = useTranslation();
   const capture = usePostHogClientCapture();
 
   const currentPage = table.getState().pagination.pageIndex + 1;
@@ -81,10 +83,10 @@ export function DataTablePagination<TData>({
       <div className="flex flex-wrap items-center space-x-6 lg:space-x-8">
         <div className="flex items-center space-x-2">
           <p className="whitespace-nowrap text-sm font-medium md:hidden">
-            {t("common.table.rows")}
+            Rows
           </p>
           <p className="hidden whitespace-nowrap text-sm font-medium md:block">
-            {t("common.table.rowsPerPage")}
+            Rows per page
           </p>
           <Select
             value={`${table.getState().pagination.pageSize}`}
@@ -110,66 +112,71 @@ export function DataTablePagination<TData>({
         <div className="flex items-center justify-center gap-1 whitespace-nowrap text-sm font-medium">
           {table.getPageCount() !== -1 ? (
             <>
-              {t("common.table.page")}
-              <Input
-                type="number"
-                min={1}
-                max={pageCount}
-                value={inputState} // Ensure the value is within bounds
-                onChange={(e) => {
-                  setInputState(e.target.value);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handlePageNavigation(e.currentTarget.value);
-                  }
-                }}
-                onBlur={(e) => {
-                  handlePageNavigation(e.target.value);
-                }}
-                className="h-8 appearance-none"
-                style={{
-                  width: `${3 + Math.max(1, pageCount.toString().length)}ch`,
-                }}
-              />
+              Page
+              {canJumpPages && (
+                <Input
+                  type="number"
+                  min={1}
+                  max={pageCount}
+                  value={inputState} // Ensure the value is within bounds
+                  onChange={(e) => {
+                    setInputState(e.target.value);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handlePageNavigation(e.currentTarget.value);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    handlePageNavigation(e.target.value);
+                  }}
+                  className="h-8 appearance-none"
+                  style={{
+                    width: `${3 + Math.max(1, pageCount.toString().length)}ch`,
+                  }}
+                />
+              )}
+              {!canJumpPages && <span>{currentPage}</span>}
             </>
           ) : (
-            `${t("common.table.page")} ${currentPage}`
+            `Page ${currentPage}`
           )}
-          {pageCount !== -1 ? (
-            <span>
-              {t("common.table.of")} {pageCount}
-            </span>
-          ) : (
-            <span>
-              {t("common.table.of")}{" "}
-              {isLoading ? (
-                <LoaderCircle className="ml-1 inline-block h-3 w-3 animate-spin text-muted-foreground" />
+          {!hideTotalCount && (
+            <>
+              {pageCount !== -1 ? (
+                <span>of {pageCount}</span>
               ) : (
-                1
+                <span>
+                  of{" "}
+                  {isLoading ? (
+                    <LoaderCircle className="ml-1 inline-block h-3 w-3 animate-spin text-muted-foreground" />
+                  ) : (
+                    1
+                  )}
+                </span>
               )}
-            </span>
+            </>
           )}
         </div>
 
         <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            className="hidden h-8 w-8 p-0 lg:flex"
-            onClick={() => {
-              table.setPageIndex(0);
-              capture("table:pagination_button_click", {
-                type: "firstPage",
-              });
-            }}
-            disabled={!table.getCanPreviousPage()}
-          >
-            <span className="sr-only">
-              {t("common.table.pagination.goToFirstPage")}
-            </span>
-            <ChevronsLeft className="h-4 w-4" />
-          </Button>
+          {canJumpPages && (
+            <Button
+              variant="outline"
+              className="hidden h-8 w-8 p-0 lg:flex"
+              onClick={() => {
+                table.setPageIndex(0);
+                capture("table:pagination_button_click", {
+                  type: "firstPage",
+                });
+              }}
+              disabled={!table.getCanPreviousPage()}
+            >
+              <span className="sr-only">Go to first page</span>
+              <ChevronsLeft className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             variant="outline"
             className="h-8 w-8 p-0"
@@ -181,9 +188,7 @@ export function DataTablePagination<TData>({
             }}
             disabled={!table.getCanPreviousPage()}
           >
-            <span className="sr-only">
-              {t("common.table.pagination.goToPreviousPage")}
-            </span>
+            <span className="sr-only">Go to previous page</span>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <Button
@@ -197,27 +202,25 @@ export function DataTablePagination<TData>({
             }}
             disabled={!table.getCanNextPage() || pageCount === -1}
           >
-            <span className="sr-only">
-              {t("common.table.pagination.goToNextPage")}
-            </span>
+            <span className="sr-only">Go to next page</span>
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button
-            variant="outline"
-            className="hidden h-8 w-8 p-0 lg:flex"
-            onClick={() => {
-              table.setPageIndex(pageCount - 1);
-              capture("table:pagination_button_click", {
-                type: "lastPage",
-              });
-            }}
-            disabled={!table.getCanNextPage() || pageCount === -1}
-          >
-            <span className="sr-only">
-              {t("common.table.pagination.goToLastPage")}
-            </span>
-            <ChevronsRight className="h-4 w-4" />
-          </Button>
+          {canJumpPages && (
+            <Button
+              variant="outline"
+              className="hidden h-8 w-8 p-0 lg:flex"
+              onClick={() => {
+                table.setPageIndex(pageCount - 1);
+                capture("table:pagination_button_click", {
+                  type: "lastPage",
+                });
+              }}
+              disabled={!table.getCanNextPage() || pageCount === -1}
+            >
+              <span className="sr-only">Go to last page</span>
+              <ChevronsRight className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
     </div>

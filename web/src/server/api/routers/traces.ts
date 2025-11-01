@@ -39,6 +39,8 @@ import {
   convertDateToClickhouseDateTime,
   getAgentGraphData,
   tracesTableUiColumnDefinitions,
+  getTracesGroupedByUsers,
+  getTracesGroupedBySessionId,
 } from "@langfuse/shared/src/server";
 import { TRPCError } from "@trpc/server";
 import { createBatchActionJob } from "@/src/features/table/server/createBatchActionJob";
@@ -72,14 +74,32 @@ export type ObservationReturnType = Omit<
 >;
 
 export const traceRouter = createTRPCRouter({
-  hasAny: protectedProjectProcedure
+  hasTracingConfigured: protectedProjectProcedure
     .input(
       z.object({
         projectId: z.string(),
       }),
     )
-    .query(async ({ input }) => {
-      return hasAnyTrace(input.projectId);
+    .query(async ({ input, ctx }) => {
+      // Check if there are any traces in the database
+      const hasTraces = await hasAnyTrace(input.projectId);
+
+      if (hasTraces) {
+        return true;
+      }
+
+      // If no traces, check if data retention is configured
+      // This indicates the user has configured tracing even if data retention cleaned all traces
+      const project = await ctx.prisma.project.findUnique({
+        where: {
+          id: input.projectId,
+        },
+        select: {
+          retentionDays: true,
+        },
+      });
+
+      return !!(project?.retentionDays && project.retentionDays > 0);
     }),
   all: protectedProjectProcedure
     .input(TraceFilterOptions)
@@ -160,38 +180,63 @@ export const traceRouter = createTRPCRouter({
     .input(
       z.object({
         projectId: z.string(),
-        timestampFilter: timeFilter.optional(),
+        timestampFilter: z.array(timeFilter).optional(),
       }),
     )
     .query(async ({ input }) => {
       const { timestampFilter } = input;
 
-      const [numericScoreNames, categoricalScoreNames, traceNames, tags] =
-        await Promise.all([
-          getNumericScoresGroupedByName(
-            input.projectId,
-            timestampFilter ? [timestampFilter] : [],
-          ),
-          getCategoricalScoresGroupedByName(
-            input.projectId,
-            timestampFilter ? [timestampFilter] : [],
-          ),
-          getTracesGroupedByName(
-            input.projectId,
-            tracesTableUiColumnDefinitions,
-            timestampFilter ? [timestampFilter] : [],
-          ),
-          getTracesGroupedByTags({
-            projectId: input.projectId,
-            filter: timestampFilter ? [timestampFilter] : [],
-          }),
-        ]);
+      const [
+        numericScoreNames,
+        categoricalScoreNames,
+        traceNames,
+        tags,
+        userIds,
+        sessionIds,
+      ] = await Promise.all([
+        getNumericScoresGroupedByName(input.projectId, timestampFilter ?? []),
+        getCategoricalScoresGroupedByName(
+          input.projectId,
+          timestampFilter ?? [],
+        ),
+        getTracesGroupedByName(
+          input.projectId,
+          tracesTableUiColumnDefinitions,
+          timestampFilter ?? [],
+        ),
+        getTracesGroupedByTags({
+          projectId: input.projectId,
+          filter: timestampFilter ?? [],
+        }),
+        getTracesGroupedByUsers(
+          input.projectId,
+          timestampFilter ?? [],
+          undefined,
+          100,
+          0,
+        ),
+        getTracesGroupedBySessionId(
+          input.projectId,
+          timestampFilter ?? [],
+          undefined,
+          100,
+          0,
+        ),
+      ]);
 
       return {
-        name: traceNames.map((n) => ({ value: n.name })),
+        name: traceNames.map((n) => ({ value: n.name, count: n.count })),
         scores_avg: numericScoreNames.map((s) => s.name),
         score_categories: categoricalScoreNames,
         tags: tags,
+        users: userIds.map((u) => ({
+          value: u.user,
+          count: u.count,
+        })),
+        sessions: sessionIds.map((s) => ({
+          value: s.session_id,
+          count: s.count,
+        })),
       };
     }),
   byId: protectedGetTraceProcedure
@@ -362,6 +407,7 @@ export const traceRouter = createTRPCRouter({
         const clickhouseTrace = await getTraceById({
           traceId: input.traceId,
           projectId: input.projectId,
+          clickhouseFeatureTag: "tracing-trpc",
         });
         if (clickhouseTrace) {
           trace = clickhouseTrace;
@@ -407,6 +453,7 @@ export const traceRouter = createTRPCRouter({
         const clickhouseTrace = await getTraceById({
           traceId: input.traceId,
           projectId: input.projectId,
+          clickhouseFeatureTag: "tracing-trpc",
         });
         if (!clickhouseTrace) {
           logger.error(
@@ -453,6 +500,7 @@ export const traceRouter = createTRPCRouter({
         const clickhouseTrace = await getTraceById({
           traceId: input.traceId,
           projectId: input.projectId,
+          clickhouseFeatureTag: "tracing-trpc",
         });
         if (!clickhouseTrace) {
           logger.error(
@@ -502,17 +550,39 @@ export const traceRouter = createTRPCRouter({
       const result = records
         .map((r) => {
           const parsed = AgentGraphDataSchema.safeParse(r);
+          if (!parsed.success) {
+            return null;
+          }
 
-          return parsed.success &&
-            parsed.data.step != null &&
-            parsed.data.node != null
-            ? {
-                id: parsed.data.id,
-                node: parsed.data.node,
-                step: parsed.data.step,
-                parentObservationId: parsed.data.parent_observation_id,
-              }
-            : null;
+          const data = parsed.data;
+          const hasLangGraphData = data.step != null && data.node != null;
+          const hasAgentData = data.type !== "EVENT"; // Include all types except EVENT
+
+          if (hasLangGraphData) {
+            return {
+              id: data.id,
+              node: data.node,
+              step: data.step,
+              parentObservationId: data.parent_observation_id || null,
+              name: data.name,
+              startTime: data.start_time,
+              endTime: data.end_time || undefined,
+              observationType: data.type,
+            };
+          } else if (hasAgentData) {
+            return {
+              id: data.id,
+              node: data.name,
+              step: 0,
+              parentObservationId: data.parent_observation_id || null,
+              name: data.name,
+              startTime: data.start_time,
+              endTime: data.end_time || undefined,
+              observationType: data.type,
+            };
+          }
+
+          return null;
         })
         .filter((r) => Boolean(r)) as Required<AgentGraphDataResponse>[];
 

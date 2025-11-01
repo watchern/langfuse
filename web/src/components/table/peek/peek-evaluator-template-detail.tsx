@@ -1,18 +1,17 @@
-import { usePeekState } from "@/src/components/table/peek/hooks/usePeekState";
+import { useRouter } from "next/router";
 import { Skeleton } from "@/src/components/ui/skeleton";
 import { usePeekEvalTemplateData } from "@/src/components/table/peek/hooks/usePeekEvalTemplateData";
 import { EvalTemplateForm } from "@/src/features/evals/components/template-form";
 import { MaintainerTooltip } from "@/src/features/evals/components/maintainer-tooltip";
 import { getMaintainer } from "@/src/features/evals/utils/typeHelpers";
-import { useTranslation } from "react-i18next";
 
 export const PeekViewEvaluatorTemplateDetail = ({
   projectId,
 }: {
   projectId: string;
 }) => {
-  const { t } = useTranslation();
-  const { peekId } = usePeekState();
+  const router = useRouter();
+  const peekId = router.query.peek as string | undefined;
 
   const { data: template } = usePeekEvalTemplateData({
     templateId: peekId,

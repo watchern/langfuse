@@ -1,6 +1,6 @@
 import { Button } from "@/src/components/ui/button";
 import { JSONView } from "@/src/components/ui/CodeJsonViewer";
-import { DatasetRunItemsTable } from "@/src/features/datasets/components/DatasetRunItemsTable";
+import { DatasetRunItemsByRunTable } from "@/src/features/datasets/components/DatasetRunItemsByRunTable";
 import { DeleteDatasetRunButton } from "@/src/features/datasets/components/DeleteDatasetRunButton";
 import { DetailPageNav } from "@/src/features/navigate-detail-pages/DetailPageNav";
 import { api } from "@/src/utils/api";
@@ -21,10 +21,8 @@ import {
   SidePanelTitle,
 } from "@/src/components/ui/side-panel";
 import { Skeleton } from "@/src/components/ui/skeleton";
-import { useTranslation } from "react-i18next";
 
 export default function Dataset() {
-  const { t } = useTranslation();
   const router = useRouter();
   const projectId = router.query.projectId as string;
   const datasetId = router.query.datasetId as string;
@@ -46,18 +44,12 @@ export default function Dataset() {
         title: run.data?.name ?? runId,
         itemType: "DATASET_RUN",
         breadcrumb: [
-          {
-            name: t("dataset.pages.title"),
-            href: `/project/${projectId}/datasets`,
-          },
+          { name: "Datasets", href: `/project/${projectId}/datasets` },
           {
             name: dataset.data?.name ?? datasetId,
             href: `/project/${projectId}/datasets/${datasetId}`,
           },
-          {
-            name: t("dataset.runs.title"),
-            href: `/project/${projectId}/datasets/${datasetId}`,
-          },
+          { name: "Runs", href: `/project/${projectId}/datasets/${datasetId}` },
         ],
         actionButtonsRight: (
           <>
@@ -102,15 +94,18 @@ export default function Dataset() {
     >
       <div className="grid flex-1 grid-cols-[1fr,auto] overflow-hidden">
         <div className="flex h-full flex-col overflow-hidden">
-          <DatasetRunItemsTable
+          <DatasetRunItemsByRunTable
             projectId={projectId}
             datasetId={datasetId}
             datasetRunId={runId}
           />
         </div>
-        <SidePanel mobileTitle={t("dataset.runs.details")} id="run-details">
+        <SidePanel
+          mobileTitle="Experiment run details"
+          id="experiment-run-details"
+        >
           <SidePanelHeader>
-            <SidePanelTitle>{t("dataset.runs.details")}</SidePanelTitle>
+            <SidePanelTitle>Experiment run details</SidePanelTitle>
           </SidePanelHeader>
           <SidePanelContent>
             {run.isPending ? (
@@ -120,14 +115,14 @@ export default function Dataset() {
                 {!!run.data?.description && (
                   <JSONView
                     json={run.data.description}
-                    title={t("dataset.runs.description")}
+                    title="Description"
                     className="w-full overflow-y-auto"
                   />
                 )}
                 {!!run.data?.metadata && (
                   <JSONView
                     json={run.data.metadata}
-                    title={t("dataset.runs.metadata")}
+                    title="Metadata"
                     className="w-full overflow-y-auto"
                   />
                 )}

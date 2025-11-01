@@ -1,5 +1,4 @@
 import { type EvalTemplate } from "@langfuse/shared";
-import { useTranslation } from "react-i18next";
 
 import {
   CheckIcon,
@@ -7,6 +6,7 @@ import {
   Cog,
   ExternalLink,
   AlertCircle,
+  ExternalLinkIcon,
 } from "lucide-react";
 import {
   Popover,
@@ -25,6 +25,7 @@ import {
 import { cn } from "@/src/utils/tailwind";
 import { Button } from "@/src/components/ui/button";
 import { useState } from "react";
+import Link from "next/link";
 import { useExperimentEvaluatorSelection } from "@/src/features/experiments/hooks/useExperimentEvaluatorSelection";
 import { useTemplatesValidation } from "@/src/features/evals/hooks/useTemplatesValidation";
 import {
@@ -45,6 +46,7 @@ type TemplateSelectorProps = {
   inactiveTemplateIds?: string[];
   onConfigureTemplate?: (templateId: string) => void;
   onSelectEvaluator?: (templateId: string) => void;
+  onEvaluatorToggled?: () => void;
   className?: string;
 };
 
@@ -56,10 +58,10 @@ export const TemplateSelector = ({
   inactiveTemplateIds,
   onConfigureTemplate,
   onSelectEvaluator,
+  onEvaluatorToggled,
   className,
   disabled = false,
 }: TemplateSelectorProps) => {
-  const { t } = useTranslation();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [search, setSearch] = useState("");
   const {
@@ -73,6 +75,7 @@ export const TemplateSelector = ({
     initialActiveTemplateIds: activeTemplateIds,
     initialInactiveTemplateIds: inactiveTemplateIds,
     onSelectEvaluator,
+    onEvaluatorToggled,
   });
 
   // Validation for templates requiring default model
@@ -154,10 +157,8 @@ export const TemplateSelector = ({
             <div className="flex items-center gap-1 overflow-hidden">
               <span className="mr-1 truncate">
                 {activeTemplates.length > 0
-                  ? t("evaluation.eval.pages.activeEvaluators", {
-                      count: activeTemplates.length,
-                    })
-                  : t("evaluation.eval.pages.selectEvaluators")}
+                  ? `${activeTemplates.length} active evaluators`
+                  : "Select evaluators"}
               </span>
             </div>
             <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -166,7 +167,7 @@ export const TemplateSelector = ({
         <PopoverContent className="w-[300px] p-0" align="start">
           <InputCommand>
             <InputCommandInput
-              placeholder={t("evaluation.eval.pages.searchEvaluators")}
+              placeholder="Search evaluators..."
               className="h-9"
               value={search}
               onValueChange={setSearch}
@@ -219,10 +220,17 @@ export const TemplateSelector = ({
                                 <TooltipTrigger asChild>
                                   <AlertCircle className="ml-1 h-4 w-4 text-yellow-500" />
                                 </TooltipTrigger>
-                                <TooltipContent>
-                                  {t(
-                                    "evaluation.eval.newEvaluator.requiresProjectLevelEvaluationModel",
-                                  )}
+                                <TooltipContent className="max-h-[50dvh] overflow-y-auto whitespace-normal break-normal text-xs">
+                                  <p>Requires project-level evaluation model</p>
+                                  <Link
+                                    href={`/project/${projectId}/evals/default-model`}
+                                    className="mt-2 flex items-center gap-1 text-blue-600 hover:underline"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    <ExternalLinkIcon className="h-3 w-3" />
+                                    Configure default model
+                                  </Link>
                                 </TooltipContent>
                               </Tooltip>
                             )}
@@ -296,10 +304,17 @@ export const TemplateSelector = ({
                               <TooltipTrigger asChild>
                                 <AlertCircle className="ml-1 h-4 w-4 text-yellow-500" />
                               </TooltipTrigger>
-                              <TooltipContent>
-                                {t(
-                                  "dataset.newDatasetRunForm.requiresProjectLevelEvaluationModel",
-                                )}
+                              <TooltipContent className="max-h-[50dvh] overflow-y-auto whitespace-normal break-normal text-xs">
+                                <p>Requires project-level evaluation model</p>
+                                <Link
+                                  href={`/project/${projectId}/evals/default-model`}
+                                  className="mt-2 flex items-center gap-1 text-blue-600 hover:underline"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <ExternalLinkIcon className="h-3 w-3" />
+                                  Configure default model
+                                </Link>
                               </TooltipContent>
                             </Tooltip>
                           )}

@@ -1,5 +1,4 @@
-import { usePeekState } from "@/src/components/table/peek/hooks/usePeekState";
-import { type EvaluatorDataRow } from "@/src/features/evals/components/evaluator-table";
+import { useRouter } from "next/router";
 import { Skeleton } from "@/src/components/ui/skeleton";
 import TableLink from "@/src/components/table/table-link";
 import { CardDescription } from "@/src/components/ui/card";
@@ -20,17 +19,14 @@ import { useState } from "react";
 import { cn } from "@/src/utils/tailwind";
 import { showSuccessToast } from "@/src/features/notifications/showSuccessToast";
 import { api } from "@/src/utils/api";
-import { useTranslation } from "react-i18next";
 
 export const PeekViewEvaluatorConfigDetail = ({
   projectId,
-  row,
 }: {
   projectId: string;
-  row?: EvaluatorDataRow;
 }) => {
-  const { t } = useTranslation();
-  const { peekId } = usePeekState();
+  const router = useRouter();
+  const peekId = router.query.peek as string | undefined;
   const [isEditMode, setIsEditMode] = useState(false);
   const utils = api.useUtils();
 
@@ -49,9 +45,7 @@ export const PeekViewEvaluatorConfigDetail = ({
     <div className="grid h-full flex-1 grid-rows-[auto,auto,1fr] gap-2 overflow-hidden p-3 contain-layout">
       <div className="flex items-center justify-between">
         <div className="flex flex-row items-center gap-2">
-          <span className="max-h-fit text-lg font-medium">
-            {t("evaluation.eval.pages.configuration")}
-          </span>
+          <span className="max-h-fit text-lg font-medium">Configuration</span>
           <div className="flex items-center gap-2">
             <StatusBadge
               type={evalConfig.finalStatus.toLowerCase()}
@@ -68,7 +62,7 @@ export const PeekViewEvaluatorConfigDetail = ({
           <span
             className={cn("text-sm", isEditMode ? "" : "text-muted-foreground")}
           >
-            {t("evaluation.eval.pages.editMode")}
+            Edit Mode
           </span>
           <Switch
             disabled={
@@ -82,26 +76,26 @@ export const PeekViewEvaluatorConfigDetail = ({
         </div>
       </div>
       <CardDescription className="flex items-center text-sm">
-        <span className="mr-2 text-sm font-medium">
-          {t("evaluation.eval.pages.referencedEvaluator")}
-        </span>
-        {row?.template && (
+        <span className="mr-2 text-sm font-medium">Referenced Evaluator</span>
+        {evalConfig.evalTemplate && (
           <TableLink
-            path={`/project/${projectId}/evals/templates/${row?.template.id}`}
-            value={row?.template.name}
+            path={`/project/${projectId}/evals/templates/${evalConfig.evalTemplate.id}`}
+            value={evalConfig.evalTemplate.name}
             className="mr-1 flex min-h-6 items-center"
           />
         )}
-        {row?.maintainer && (
+        {evalConfig.evalTemplate && (
           <Tooltip>
             <TooltipTrigger>
-              {row.maintainer.includes("Langfuse") ? (
+              {evalConfig.evalTemplate.projectId === null ? (
                 <LangfuseIcon size={16} />
               ) : (
                 <UserCircle2Icon className="h-4 w-4" />
               )}
             </TooltipTrigger>
-            <TooltipContent>{row.maintainer}</TooltipContent>
+            <TooltipContent>
+              {evalConfig.evalTemplate.partner ?? "Langfuse"}
+            </TooltipContent>
           </Tooltip>
         )}
       </CardDescription>
@@ -128,7 +122,7 @@ export const PeekViewEvaluatorConfigDetail = ({
             setIsEditMode(false);
             utils.evals.invalidate();
             showSuccessToast({
-              title: t("evaluation.eval.pages.runningEvaluator") + " updated",
+              title: "Running Evaluator updated",
               description: "The evaluator configuration has been updated.",
             });
           }}

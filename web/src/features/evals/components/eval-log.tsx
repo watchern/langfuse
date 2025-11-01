@@ -14,7 +14,6 @@ import { safeExtract } from "@/src/utils/map-utils";
 import { type Prisma } from "@langfuse/shared";
 import { createColumnHelper } from "@tanstack/react-table";
 import { useQueryParams, withDefault, NumberParam } from "use-query-params";
-import { useTranslation } from "react-i18next";
 
 export type JobExecutionRow = {
   status: string;
@@ -25,6 +24,7 @@ export type JobExecutionRow = {
   startTime?: string;
   endTime?: string;
   traceId?: string;
+  executionTraceId?: string;
   templateId: string;
   evaluatorId: string;
   error?: string;
@@ -37,7 +37,6 @@ export default function EvalLogTable({
   projectId: string;
   jobConfigurationId?: string;
 }) {
-  const { t } = useTranslation();
   const [rowHeight, setRowHeight] = useRowHeightLocalStorage("evalLogs", "s");
   const [paginationState, setPaginationState] = useQueryParams({
     pageIndex: withDefault(NumberParam, 0),
@@ -62,7 +61,7 @@ export default function EvalLogTable({
   const columnHelper = createColumnHelper<JobExecutionRow>();
   const columns = [
     columnHelper.accessor("status", {
-      header: t("common.batchExports.status"),
+      header: "Status",
       id: "status",
       cell: (row) => {
         const status = row.getValue();
@@ -71,21 +70,21 @@ export default function EvalLogTable({
     }),
     columnHelper.accessor("startTime", {
       id: "startTime",
-      header: t("evaluation.eval.logTable.startTime"),
+      header: "Start Time",
       enableHiding: true,
     }),
     columnHelper.accessor("endTime", {
       id: "endTime",
-      header: t("evaluation.eval.logTable.endTime"),
+      header: "End Time",
       enableHiding: true,
     }),
     columnHelper.accessor("scoreName", {
-      header: t("evaluation.eval.logTable.scoreName"),
+      header: "Score Name",
       id: "scoreName",
       enableHiding: true,
     }),
     columnHelper.accessor("scoreValue", {
-      header: t("evaluation.eval.logTable.scoreValue"),
+      header: "Score Value",
       id: "scoreValue",
       enableHiding: true,
       cell: (row) => {
@@ -97,7 +96,7 @@ export default function EvalLogTable({
       },
     }),
     columnHelper.accessor("scoreComment", {
-      header: t("evaluation.eval.logTable.scoreComment"),
+      header: "Score Comment",
       id: "scoreComment",
       enableHiding: true,
       cell: (row) => {
@@ -111,7 +110,7 @@ export default function EvalLogTable({
     }),
     columnHelper.accessor("error", {
       id: "error",
-      header: t("common.errors.error"),
+      header: "Error",
       enableHiding: true,
       cell: (row) => {
         const value = row.getValue();
@@ -124,7 +123,21 @@ export default function EvalLogTable({
     }),
     columnHelper.accessor("traceId", {
       id: "traceId",
-      header: t("evaluation.eval.logTable.trace"),
+      header: "Target Trace",
+      cell: (row) => {
+        const traceId = row.getValue();
+        return traceId ? (
+          <TableLink
+            path={`/project/${projectId}/traces/${encodeURIComponent(traceId)}`}
+            value={traceId}
+          />
+        ) : undefined;
+      },
+    }),
+    columnHelper.accessor("executionTraceId", {
+      id: "executionTraceId",
+      header: "Execution Trace",
+      enableHiding: true,
       cell: (row) => {
         const traceId = row.getValue();
         return traceId ? (
@@ -137,7 +150,7 @@ export default function EvalLogTable({
     }),
     columnHelper.accessor("templateId", {
       id: "templateId",
-      header: t("evaluation.eval.logTable.template"),
+      header: "Template",
       cell: (row) => {
         const templateId = row.getValue();
         return templateId ? (
@@ -154,7 +167,7 @@ export default function EvalLogTable({
     columns.push(
       columnHelper.accessor("evaluatorId", {
         id: "evaluatorId",
-        header: t("evaluation.eval.logTable.evaluator"),
+        header: "Evaluator",
         cell: (row) => {
           const evaluatorId = row.getValue();
           return evaluatorId ? (
@@ -188,6 +201,7 @@ export default function EvalLogTable({
       startTime: jobConfig.startTime?.toLocaleString() ?? undefined,
       endTime: jobConfig.endTime?.toLocaleString() ?? undefined,
       traceId: jobConfig.jobInputTraceId ?? undefined,
+      executionTraceId: jobConfig.executionTraceId ?? undefined,
       templateId: jobConfig.jobTemplateId ?? "",
       evaluatorId: jobConfig.jobConfigurationId,
       error: jobConfig.error ?? undefined,

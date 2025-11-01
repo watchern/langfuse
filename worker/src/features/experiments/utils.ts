@@ -6,13 +6,10 @@ import {
   datasetItemMatchesVariable,
   extractPlaceholderNames,
   extractVariables,
-  InvalidRequestError,
-  LangfuseNotFoundError,
   MessagePlaceholderValues,
   Prisma,
   PromptContent,
   PromptType,
-  QUEUE_ERROR_MESSAGES,
   stringifyValue,
 } from "@langfuse/shared";
 import { compileHandlebarString } from "../utils/utilities";
@@ -26,51 +23,9 @@ import {
   LLMApiKeySchema,
   PromptContentSchema,
 } from "@langfuse/shared/src/server";
-import { kyselyPrisma, prisma } from "@langfuse/shared/src/db";
+import { prisma } from "@langfuse/shared/src/db";
 import z from "zod/v4";
-import { createHash } from "crypto";
-import { env } from "../../env";
-
-export enum TraceExecutionSource {
-  // eslint-disable-next-line no-unused-vars
-  POSTGRES = "POSTGRES",
-  // eslint-disable-next-line no-unused-vars
-  CLICKHOUSE = "CLICKHOUSE",
-}
-
-/**
- * Determines whether traces should be created for a given execution source.
- *
- * During DRI migration, we should not create traces for both CH AND PG execution,
- * as these will show up in the UI as duplicates and confuse users. Instead, we
- * only create traces in the PostgreSQL execution path, as both systems use the
- * same unified trace ID.
- *
- * We will remove the generation of unified trace IDs once the DRI migration is complete.
- *
- * @param source - The execution source (POSTGRES or CLICKHOUSE)
- * @returns true if traces should be created for this source, false otherwise
- *
- */
-export const shouldCreateTrace = (source: TraceExecutionSource) => {
-  if (env.LANGFUSE_EXPERIMENT_DATASET_RUN_ITEMS_TRACE_SOURCE_CH === "true") {
-    return source === TraceExecutionSource.CLICKHOUSE;
-  }
-  return source === TraceExecutionSource.POSTGRES;
-};
-
-/**
- * Generate deterministic trace ID based on dataset run and item IDs
- * This ensures both PostgreSQL and ClickHouse use the same trace ID
- */
-export function generateUnifiedTraceId(
-  runId: string,
-  datasetItemId: string,
-): string {
-  const input = `${runId}-${datasetItemId}`;
-  const hash = createHash("sha256").update(input).digest("hex");
-  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-8${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
-}
+import { UnrecoverableError } from "../../errors/UnrecoverableError";
 
 const isValidPrismaJsonObject = (
   input: Prisma.JsonValue,
@@ -105,9 +60,11 @@ export const parseDatasetItemInput = (
           value === null ? null : stringifyValue(value),
         ]),
     );
+
     return filteredInput;
   } catch (error) {
     logger.info("Error parsing dataset item input:", error);
+
     return itemInput;
   }
 };
@@ -116,12 +73,12 @@ export const fetchDatasetRun = async (
   datasetRunId: string,
   projectId: string,
 ) => {
-  return await kyselyPrisma.$kysely
-    .selectFrom("dataset_runs")
-    .selectAll()
-    .where("id", "=", datasetRunId)
-    .where("project_id", "=", projectId)
-    .executeTakeFirst();
+  return await prisma.datasetRuns.findFirst({
+    where: {
+      id: datasetRunId,
+      projectId,
+    },
+  });
 };
 
 export const fetchPrompt = async (promptId: string, projectId: string) => {
@@ -136,10 +93,14 @@ export const fetchPrompt = async (promptId: string, projectId: string) => {
 
 export const replaceVariablesInPrompt = (
   prompt: PromptContent,
-  itemInput: Record<string, any>,
+  itemInput: Record<string, any> | null,
   variables: string[],
   placeholderNames: string[] = [],
 ): ChatMessage[] => {
+  if (!itemInput) {
+    throw Error("Dataset item has no input.");
+  }
+
   const processContent = (content: string) => {
     // Extract only Handlebars variables from itemInput (exclude message placeholders)
     const filteredContext = Object.fromEntries(
@@ -217,6 +178,9 @@ export const replaceVariablesInPrompt = (
   }));
 };
 
+export type PromptExperimentConfig = Awaited<
+  ReturnType<typeof validateAndSetupExperiment>
+>;
 export async function validateAndSetupExperiment(
   event: z.infer<typeof ExperimentCreateEventSchema>,
 ) {
@@ -226,7 +190,8 @@ export async function validateAndSetupExperiment(
   const datasetRun = await fetchDatasetRun(runId, projectId);
 
   if (!datasetRun) {
-    throw new LangfuseNotFoundError(`Dataset run ${runId} not found`);
+    // throw regular error here to allow retries for race conditions with dataset run creation
+    throw Error(`Dataset run ${runId} not found`);
   }
 
   // Validate experiment metadata
@@ -234,8 +199,8 @@ export async function validateAndSetupExperiment(
     datasetRun.metadata,
   );
   if (!validatedRunMetadata.success) {
-    throw new LangfuseNotFoundError(
-      "Langfuse in-app experiments can only be run with prompt and model configurations in metadata.",
+    throw new UnrecoverableError(
+      "Langfuse in-app experiments require prompt and model configurations in dataset run metadata",
     );
   }
 
@@ -245,13 +210,11 @@ export async function validateAndSetupExperiment(
   // Fetch and validate prompt
   const prompt = await fetchPrompt(prompt_id, projectId);
   if (!prompt) {
-    throw new LangfuseNotFoundError(`Prompt ${prompt_id} not found`);
+    throw new UnrecoverableError(`Prompt ${prompt_id} not found`);
   }
   const validatedPrompt = PromptContentSchema.safeParse(prompt.prompt);
   if (!validatedPrompt.success) {
-    throw new InvalidRequestError(
-      `Prompt ${prompt_id} not found in expected format`,
-    );
+    throw new UnrecoverableError(`Prompt ${prompt_id} has invalid format`);
   }
 
   // Fetch and validate API key
@@ -259,16 +222,12 @@ export async function validateAndSetupExperiment(
     where: { projectId, provider },
   });
   if (!apiKey) {
-    throw new LangfuseNotFoundError(
-      `${QUEUE_ERROR_MESSAGES.API_KEY_ERROR} ${provider} not found.`,
-    );
+    throw new UnrecoverableError(`API key for provider ${provider} not found`);
   }
 
   const validatedApiKey = LLMApiKeySchema.safeParse(apiKey);
   if (!validatedApiKey.success) {
-    throw new LangfuseNotFoundError(
-      `${QUEUE_ERROR_MESSAGES.API_KEY_ERROR} ${provider} not found.`,
-    );
+    throw new UnrecoverableError(`API key for provider ${provider} not found`);
   }
 
   // Extract variables from prompt
@@ -293,6 +252,9 @@ export async function validateAndSetupExperiment(
     provider,
     model,
     model_params,
+    structuredOutputSchema: validatedRunMetadata.data.structured_output_schema,
+    experimentName: validatedRunMetadata.data.experiment_name,
+    experimentRunName: validatedRunMetadata.data.experiment_run_name,
     allVariables,
     placeholderNames,
     projectId,

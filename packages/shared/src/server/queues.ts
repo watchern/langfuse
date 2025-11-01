@@ -24,13 +24,32 @@ export const IngestionEvent = z.object({
   }),
 });
 
+export const OtelIngestionEvent = z.object({
+  data: z.object({
+    fileKey: z.string(),
+    publicKey: z.string().optional(),
+  }),
+  authCheck: z.object({
+    validKey: z.literal(true),
+    scope: z.object({
+      projectId: z.string(),
+      accessLevel: z.literal("project"),
+    }),
+  }),
+});
+
 export const BatchExportJobSchema = z.object({
   projectId: z.string(),
   batchExportId: z.string(),
 });
+export const CloudSpendAlertJobSchema = z.object({
+  orgId: z.string(),
+});
 export const TraceQueueEventSchema = z.object({
   projectId: z.string(),
   traceId: z.string(),
+  exactTimestamp: z.date().optional(),
+  traceEnvironment: z.string().optional(), // Optional to maintain backward compatibility with existing jobs in queue during deployment. 'optional()' can be removed after queue was exhausted
 });
 export const TracesQueueEventSchema = z.object({
   projectId: z.string(),
@@ -71,6 +90,9 @@ export const EvalExecutionEvent = z.object({
   delay: z.number().nullish(),
 });
 export const PostHogIntegrationProcessingEventSchema = z.object({
+  projectId: z.string(),
+});
+export const MixpanelIntegrationProcessingEventSchema = z.object({
   projectId: z.string(),
 });
 export const BlobStorageIntegrationProcessingEventSchema = z.object({
@@ -164,6 +186,16 @@ export const DeadLetterRetryQueueEventSchema = z.object({
   timestamp: z.date(),
 });
 
+export const NotificationEventSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("COMMENT_MENTION"),
+    commentId: z.string(),
+    projectId: z.string(),
+    mentionedUserIds: z.array(z.string()),
+  }),
+  // Future notification types can be added here
+]);
+
 export const WebhookOutboundEnvelopeSchema = z.object({
   prompt: PromptDomainSchema,
   action: EventActionSchema,
@@ -194,6 +226,7 @@ export type CreateEvalQueueEventType = z.infer<
   typeof CreateEvalQueueEventSchema
 >;
 export type BatchExportJobType = z.infer<typeof BatchExportJobSchema>;
+export type CloudSpendAlertJobType = z.infer<typeof CloudSpendAlertJobSchema>;
 export type TraceQueueEventType = z.infer<typeof TraceQueueEventSchema>;
 export type TracesQueueEventType = z.infer<typeof TracesQueueEventSchema>;
 export type ScoresQueueEventType = z.infer<typeof ScoresQueueEventSchema>;
@@ -204,11 +237,15 @@ export type DatasetRunItemUpsertEventType = z.infer<
 >;
 export type EvalExecutionEventType = z.infer<typeof EvalExecutionEvent>;
 export type IngestionEventQueueType = z.infer<typeof IngestionEvent>;
+export type OtelIngestionEventQueueType = z.infer<typeof OtelIngestionEvent>;
 export type ExperimentCreateEventType = z.infer<
   typeof ExperimentCreateEventSchema
 >;
 export type PostHogIntegrationProcessingEventType = z.infer<
   typeof PostHogIntegrationProcessingEventSchema
+>;
+export type MixpanelIntegrationProcessingEventType = z.infer<
+  typeof MixpanelIntegrationProcessingEventSchema
 >;
 export type DataRetentionProcessingEventType = z.infer<
   typeof DataRetentionProcessingEventSchema
@@ -222,8 +259,7 @@ export type BlobStorageIntegrationProcessingEventType = z.infer<
 export type DeadLetterRetryQueueEventType = z.infer<
   typeof DeadLetterRetryQueueEventSchema
 >;
-
-export type WebhookQueueEventType = z.infer<typeof WebhookInputSchema>;
+export type NotificationEventType = z.infer<typeof NotificationEventSchema>;
 
 export const RetryBaggage = z.object({
   originalJobTimestamp: z.date(),
@@ -239,12 +275,17 @@ export enum QueueName {
   EvaluationExecution = "evaluation-execution-queue", // Worker executes Evals
   DatasetRunItemUpsert = "dataset-run-item-upsert-queue",
   BatchExport = "batch-export-queue",
+  OtelIngestionQueue = "otel-ingestion-queue",
   IngestionQueue = "ingestion-queue", // Process single events with S3-merge
   IngestionSecondaryQueue = "secondary-ingestion-queue", // Separates high priority + high throughput projects from other projects.
   CloudUsageMeteringQueue = "cloud-usage-metering-queue",
+  CloudSpendAlertQueue = "cloud-spend-alert-queue",
+  CloudFreeTierUsageThresholdQueue = "cloud-free-tier-usage-threshold-queue",
   ExperimentCreate = "experiment-create-queue",
   PostHogIntegrationQueue = "posthog-integration-queue",
   PostHogIntegrationProcessingQueue = "posthog-integration-processing-queue",
+  MixpanelIntegrationQueue = "mixpanel-integration-queue",
+  MixpanelIntegrationProcessingQueue = "mixpanel-integration-processing-queue",
   BlobStorageIntegrationQueue = "blobstorage-integration-queue",
   BlobStorageIntegrationProcessingQueue = "blobstorage-integration-processing-queue",
   CoreDataS3ExportQueue = "core-data-s3-export-queue",
@@ -258,6 +299,8 @@ export enum QueueName {
   DeadLetterRetryQueue = "dead-letter-retry-queue",
   WebhookQueue = "webhook-queue",
   EntityChangeQueue = "entity-change-queue",
+  EventPropagationQueue = "event-propagation-queue",
+  NotificationQueue = "notification-queue",
 }
 
 export enum QueueJobs {
@@ -268,11 +311,16 @@ export enum QueueJobs {
   EvaluationExecution = "evaluation-execution-job",
   BatchExportJob = "batch-export-job",
   CloudUsageMeteringJob = "cloud-usage-metering-job",
+  CloudSpendAlertJob = "cloud-spend-alert-job",
+  CloudFreeTierUsageThresholdJob = "cloud-free-tier-usage-threshold-job",
+  OtelIngestionJob = "otel-ingestion-job",
   IngestionJob = "ingestion-job",
   IngestionSecondaryJob = "secondary-ingestion-job",
   ExperimentCreateJob = "experiment-create-job",
   PostHogIntegrationJob = "posthog-integration-job",
   PostHogIntegrationProcessingJob = "posthog-integration-processing-job",
+  MixpanelIntegrationJob = "mixpanel-integration-job",
+  MixpanelIntegrationProcessingJob = "mixpanel-integration-processing-job",
   BlobStorageIntegrationJob = "blobstorage-integration-job",
   BlobStorageIntegrationProcessingJob = "blobstorage-integration-processing-job",
   CoreDataS3ExportJob = "core-data-s3-export-job",
@@ -286,6 +334,8 @@ export enum QueueJobs {
   DeadLetterRetryJob = "dead-letter-retry-job",
   WebhookJob = "webhook-job",
   EntityChangeJob = "entity-change-job",
+  EventPropagationJob = "event-propagation-job",
+  NotificationJob = "notification-job",
 }
 
 export type TQueueJobTypes = {
@@ -338,6 +388,12 @@ export type TQueueJobTypes = {
     payload: BatchExportJobType;
     name: QueueJobs.BatchExportJob;
   };
+  [QueueName.OtelIngestionQueue]: {
+    timestamp: Date;
+    id: string;
+    payload: OtelIngestionEventQueueType;
+    name: QueueJobs.OtelIngestionJob;
+  };
   [QueueName.IngestionQueue]: {
     timestamp: Date;
     id: string;
@@ -362,6 +418,12 @@ export type TQueueJobTypes = {
     id: string;
     payload: PostHogIntegrationProcessingEventType;
     name: QueueJobs.PostHogIntegrationProcessingJob;
+  };
+  [QueueName.MixpanelIntegrationProcessingQueue]: {
+    timestamp: Date;
+    id: string;
+    payload: MixpanelIntegrationProcessingEventType;
+    name: QueueJobs.MixpanelIntegrationProcessingJob;
   };
   [QueueName.DataRetentionProcessingQueue]: {
     timestamp: Date;
@@ -404,5 +466,30 @@ export type TQueueJobTypes = {
     id: string;
     payload: EntityChangeEventType;
     name: QueueJobs.EntityChangeJob;
+  };
+  [QueueName.CloudSpendAlertQueue]: {
+    timestamp: Date;
+    id: string;
+    payload: CloudSpendAlertJobType;
+    name: QueueJobs.CloudSpendAlertJob;
+  };
+  [QueueName.CloudFreeTierUsageThresholdQueue]: {
+    timestamp: Date;
+    id: string;
+    name: QueueJobs.CloudFreeTierUsageThresholdJob;
+  };
+  [QueueName.EventPropagationQueue]: {
+    timestamp: Date;
+    id: string;
+    payload?: {
+      partition?: string;
+    };
+    name: QueueJobs.EventPropagationJob;
+  };
+  [QueueName.NotificationQueue]: {
+    timestamp: Date;
+    id: string;
+    payload: NotificationEventType;
+    name: QueueJobs.NotificationJob;
   };
 };
